@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>増穂浦でBeach Clean</title>
+    <!-- Noto Sans JP フォントの読み込み -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #ffffff; 
+            font-family: 'Noto Sans JP', sans-serif;
+            touch-action: none;
+            user-select: none;
+            color: #333;
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+            pointer-events: none;
+            z-index: 10;
+        }
+        h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 2px; color: #fff; }
+        .status { font-size: 16px; font-weight: 700; margin: 8px 0; color: #fff; }
+        
+        #scoreBox {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            padding: 10px 24px;
+            border-radius: 30px;
+            font-size: 20px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 10;
+            pointer-events: none;
+            text-align: right;
+            backdrop-filter: blur(4px);
+        }
+
+        /* ゴミ袋・箱 UI */
+        #trash-bins {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+            align-items: flex-end;
+            width: 90%;
+            justify-content: center;
+        }
+        .bin {
+            width: 100px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 3px solid;
+            border-radius: 20px 20px 40px 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: 700;
+            font-size: 13px;
+            color: #333;
+            user-select: none;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            touch-action: none;
+            position: relative;
+        }
+        .bin:not(#bin-large):not(#bin-shell)::before {
+            content: '';
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 24px;
+            height: 12px;
+            background: inherit;
+            border-top: 3px solid;
+            border-left: 3px solid;
+            border-right: 3px solid;
+            border-radius: 8px 8px 0 0;
+            border-color: inherit;
+        }
+        .bin.hover { transform: scale(1.08) translateY(-8px); box-shadow: 0 12px 24px rgba(0,0,0,0.2); }
+        
+        #bin-burnable { border-color: #e57373; color: #c62828; }
+        #bin-burnable.hover { background: #ffebee; }
+        
+        #bin-unburnable { border-color: #64b5f6; color: #1565c0; }
+        #bin-unburnable.hover { background: #e3f2fd; }
+        
+        #bin-large { 
+            border-radius: 12px; 
+            border-color: #8D6E63; 
+            color: #4E342E; 
+            background: rgba(239, 235, 233, 0.95);
+            height: 90px;
+        }
+        #bin-large.hover { background: #D7CCC8; }
+
+        /* コレクション箱 */
+        #bin-shell {
+            border-radius: 12px;
+            border-color: #FBC02D; 
+            color: #F57F17;
+            background: rgba(255, 249, 196, 0.95);
+            height: 90px;
+            cursor: pointer;
+        }
+        #bin-shell.hover { background: #FFF59D; }
+        #bin-shell span { font-size: 10px; font-weight: 300; margin-top: 6px; color: #666; pointer-events: none;}
+
+        /* 十字コントローラー */
+        #dpad {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+            display: grid;
+            grid-template-columns: 50px 50px 50px;
+            grid-template-rows: 50px 50px 50px;
+            gap: 6px;
+            user-select: none;
+            z-index: 10;
+        }
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #dpad button {
+            background: rgba(255, 255, 255, 0.5);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+            border-radius: 12px;
+            font-size: 18px;
+            color: #333;
+            cursor: pointer;
+            touch-action: none;
+            backdrop-filter: blur(4px);
+            transition: background 0.2s;
+        }
+        #dpad button:active, #dpad button.active { background: rgba(255, 255, 255, 0.9); }
+
+        /* エフェクト */
+        .get-effect {
+            position: absolute;
+            color: #ffeb3b;
+            font-weight: 700;
+            font-size: 24px;
+            text-shadow: 1px 1px 2px #000;
+            pointer-events: none;
+            animation: floatUp 1s ease-out forwards;
+            z-index: 20;
+            transform: translate(-50%, -50%);
+        }
+        .error-effect { color: #f44336; }
+        @keyframes floatUp {
+            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+            20% { transform: translate(-50%, -70px) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -100px) scale(1); opacity: 0; }
+        }
+
+        #message-layer {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 700;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(0,0,0,0.5), 2px 2px 4px #000;
+            background: transparent;
+            pointer-events: none;
+            display: none;
+            z-index: 30;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        /* ギャラリー風 コレクションモーダル */
+        #collection-modal {
+            display: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+        }
+        .modal-content {
+            width: 90%; max-width: 900px;
+            height: 85%;
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute; top: 10px; right: 20px;
+            font-size: 30px; font-weight: 700; cursor: pointer; color: #9E9E9E;
+            transition: color 0.2s;
+        }
+        .close-btn:hover { color: #555; }
+        .modal-content h2 { 
+            margin-top: 0; color: #333; text-align: center; font-size: 22px; 
+            font-weight: 700; letter-spacing: 2px; padding-bottom: 20px;
+            border-bottom: 1px solid #E0E0E0; margin-bottom: 20px;
+        }
+        #shell-grid {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            padding: 10px;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        /* スクロールバーのスタイリング */
+        #shell-grid::-webkit-scrollbar { width: 8px; }
+        #shell-grid::-webkit-scrollbar-track { background: transparent; }
+        #shell-grid::-webkit-scrollbar-thumb { background: #CFD8DC; border-radius: 4px; }
+
+        .shell-card {
+            background: #fff;
+            border-radius: 8px; 
+            padding: 16px;
+            display: flex; flex-direction: column; 
+            align-items: center;
+            border: 1px solid #ddd;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            transition: transform 0.3s ease;
+        }
+        .shell-card:hover { transform: translateY(-5px); }
+        .shell-card.locked { opacity: 0.5; box-shadow: none; background: #eee; }
+        
+        .shell-image {
+            width: 100%; height: 120px; 
+            background: #FAFAFA; border: 1px solid #EEEEEE; border-radius: 4px;
+            margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .shell-image img { max-width: 80%; max-height: 80%; object-fit: contain; }
+        
+        .shell-card .no { 
+            font-size: 11px; color: #999; font-weight: 700; 
+            width: 100%; text-align: left; margin-bottom: 8px;
+        }
+        .shell-card .names { font-size: 15px; font-weight: 700; color: #333; margin: 0; text-align: center; }
+        .shell-card .names small { font-size: 11px; color: #666; display: block; margin-top: 4px; }
+        
+        .shell-card .rarity { font-size: 11px; color: #f57f17; margin: 8px 0; }
+        
+        .shell-card .poem { 
+            font-size: 11px; color: #444; background: #e3f2fd;
+            text-align: center; line-height: 1.6; margin-top: auto;
+            padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box;
+        }
+        .shell-card .author { 
+            width: 100%; text-align: right; font-size: 10px; color: #666; 
+            margin-top: 8px;
+        }
+
+        /* スマホ用レスポンシブ対応 */
+        @media (max-width: 600px) {
+            h1 { font-size: 18px; }
+            .status { font-size: 14px; }
+            #scoreBox { font-size: 16px; padding: 8px 16px; top: 15px; right: 15px; }
+            #ui { top: 15px; left: 15px; }
+            
+            #trash-bins { bottom: 15px; gap: 8px; }
+            .bin {
+                width: 70px; height: 75px;
+                font-size: 10px;
+                border-width: 2px;
+            }
+            .bin:not(#bin-large):not(#bin-shell)::before {
+                width: 16px; height: 8px; top: -10px; border-width: 2px;
+            }
+            #bin-large, #bin-shell { height: 65px; border-radius: 8px; }
+            #bin-shell span { font-size: 8px; }
+
+            #dpad {
+                bottom: 110px; right: 15px;
+                grid-template-columns: 45px 45px 45px;
+                grid-template-rows: 45px 45px 45px;
+            }
+            #dpad button { font-size: 16px; }
+            
+            #message-layer { font-size: 24px !important; }
+            #shell-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; padding: 10px; }
+            .shell-card { padding: 12px; }
+            .shell-image { height: 90px; }
+            .modal-content h2 { font-size: 18px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <h1>増穂浦でBeach Clean</h1>
+        <div class="status">STAGE: <span id="stageVal">1</span></div>
+        <div class="status">REMAINING: <span id="remainVal">0</span></div>
+    </div>
+
+    <div id="scoreBox"><span id="scoreVal">0</span> pt</div>
+
+    <div id="trash-bins">
+        <div id="bin-burnable" class="bin">燃えるゴミ</div>
+        <div id="bin-unburnable" class="bin">燃えないゴミ</div>
+        <div id="bin-large" class="bin">大型ゴミ</div>
+        <div id="bin-shell" class="bin">コレクション<span>(View Gallery)</span></div>
+    </div>
+
+    <div id="dpad">
+        <button id="btn-up">▲</button>
+        <button id="btn-left">◀</button>
+        <button id="btn-down">▼</button>
+        <button id="btn-right">▶</button>
+    </div>
+
+    <div id="message-layer"><span id="msg-text"></span></div>
+
+    <!-- ギャラリー風コレクションモーダル -->
+    <div id="collection-modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-modal">&times;</span>
+            <h2>KASENGAI GALLERY (<span id="collection-count">0</span> / 36)</h2>
+            <div id="shell-grid"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // ==========================================
+        // 0. データ定義 (ゴミ・貝殻)
+        // ==========================================
+        
+        const trashData = [
+            { name: 'ペットボトル', type: 'burnable', rarity: 1 },
+            { name: 'ビン', type: 'unburnable', rarity: 3 },
+            { name: '缶', type: 'unburnable', rarity: 5 },
+            { name: '発泡スチロール', type: 'burnable', rarity: 10 },
+            { name: 'ブイ', type: 'large', rarity: 7 },
+            { name: '靴', type: 'burnable', rarity: 20 },
+            { name: '綱', type: 'large', rarity: 7 },
+            { name: '流木大', type: 'large', rarity: 10 },
+            { name: '流木小', type: 'burnable', rarity: 3 }
+        ];
+
+        function getRandomTrash() {
+            const weights = trashData.map(t => 100 / t.rarity);
+            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+            let random = Math.random() * totalWeight;
+            for (let i = 0; i < trashData.length; i++) {
+                if (random < weights[i]) return trashData[i];
+                random -= weights[i];
+            }
+            return trashData[0];
+        }
+
+        const shellData = [
+            { no: 1, kasenName: 'すだれ貝', name: 'サツマアカガイ', rarity: 3, source: '山下集', author: '西行法師', poem: 'なみかかる　吹上の濱の　すだれ貝　風もぞおろす　いそぎひろはん' },
+            { no: 2, kasenName: '忘れ貝', name: 'マツヤマワスレ', rarity: 1, source: '夫木抄', author: '順徳院', poem: 'みつのはま　いそこす波の　わすれ貝　わすれずみする　松かねの声' },
+            { no: 3, kasenName: '梅の花貝', name: 'ヤヘウメ', rarity: 3, source: '新後拾遺集', author: '俊頼', poem: '春風に　波やおりけん　みちのくの　まがきがしまの　梅のはな貝' },
+            { no: 4, kasenName: '花貝', name: 'チヨノハナガイ', rarity: 1, source: '夫木抄', author: '読人不知', poem: 'えだながら　うづまく波の　おらねばや　ちりぢりよする　ちよのはながい' },
+            { no: 5, kasenName: 'さくら貝', name: 'サクラガイ', rarity: 1, source: '拾遺愚草', author: '定家', poem: '伊勢のうみ　なみの玉よる　さくらがい　かひあるうらの　はなの色かな' },
+            { no: 6, kasenName: 'ますほ貝', name: 'ベニガイ', rarity: 1, source: '山家集', author: '西行法師', poem: 'しほそむる　ますうの小貝　拾ふとて　いろのはまとは　いふにやあるらん' },
+            { no: 7, kasenName: '紫貝', name: 'フジナミガイ', rarity: 2, source: '夫木抄', author: '読人不知', poem: 'むらさきの　貝よるうらの　ふじがたは　なみのかへるぞ　はなと見へける' },
+            { no: 8, kasenName: '白貝', name: 'カガミガイ', rarity: 1, source: '名寄', author: '読人不知', poem: 'はるばると　しららのはまの　しら貝は　なつさえふれる　雪かとぞ見る' },
+            { no: 9, kasenName: 'なでしこ貝', name: 'チリボタン', rarity: 1, source: '夫木抄', author: '西行法師', poem: 'ちりほしむ　なでしこ貝に　しくいろは　やまとからにも　あらじとぞ思ふ' },
+            { no: 10, kasenName: '波間柏貝', name: 'ナミハガシハ', rarity: 1, source: '', author: '定塚', poem: '難波女が　なみまがしわを　とるほどに　日もくれ袖に　月ぞやどれる' },
+            { no: 11, kasenName: 'きぬた貝', name: 'キヌタアゲマキ', rarity: 2, source: '', author: '作者不詳', poem: '契りおきし　衣のうらの　あきふけて　うてぬきぬたの　かひもなかりき' },
+            { no: 12, kasenName: '枕貝', name: 'オキナガイ', rarity: 3, source: '和訓栞', author: '大江広重', poem: 'ふねとむる　磯のなみぢの　まくらがい　かいある夢に　あわざらめやは' },
+            { no: 13, kasenName: 'にしき貝', name: 'ナデシコガイ', rarity: 1, source: '', author: '三条院', poem: 'こきまぜに　色をつくして　よる貝は　にしきの浦と　みゆるなりけり' },
+            { no: 14, kasenName: 'いろ貝', name: 'ヒバリガイ', rarity: 1, source: '末木抄', author: '読人不知', poem: 'いろいろの　かいありてこそ　ひろはめれ　ちくさの浜の　あまがまにまに' },
+            { no: 15, kasenName: 'ほら貝', name: 'オウウヤウラク等', rarity: 3, source: '夫木抄', author: '寂蓮法', poem: '山ぶしの　ほらふく峰の　夕ぐれに　そこともしらめ　すずの上風' },
+            { no: 16, kasenName: '都貝', name: 'マツムシ', rarity: 2, source: '夫木抄', author: '伎女河菰', poem: 'ともすれば　こひしきかたの　名におへる　みやこの貝をぞ　まづひろいぬる' },
+            { no: 17, kasenName: 'うらうづ貝', name: 'ウラウツガイ', rarity: 2, source: '夫木抄', author: '敦忠', poem: '田鶴さわぐ　あしのもとはを　かきわけて　うらうづ貝を　ひろいつるかな' },
+            { no: 18, kasenName: 'さたべ貝', name: 'サザエ', rarity: 2, source: '山家集', author: '西行法師', poem: 'さたべすむ　せとのいわつぼ　求出て　いそしきあまの　けしきなるかな' },
+            { no: 19, kasenName: '千鳥貝', name: 'スズキガイ', rarity: 3, source: '新古今集', author: '後白河院', poem: 'はまちどり　ふみおくあとの　つもりなば　かひあるうらに　あわざらめやは' },
+            { no: 20, kasenName: '雀貝', name: 'キクスズメ', rarity: 1, source: '夫木抄', author: '大江広重', poem: '波よする　竹のとまりの　すずめ貝　うれしき世にも　あひにけるかな' },
+            { no: 21, kasenName: 'いたや貝', name: 'イタヤガイ', rarity: 1, source: '新撰六帖', author: '信実', poem: 'あやしくも　うらめづらしき　いたや貝　とまふくあまの　ならひならずや' },
+            { no: 22, kasenName: 'あこや貝', name: 'カキ', rarity: 3, source: '山家集', author: '西行法師', poem: 'あやことる　ゐ貝のからを　つみおきて　たからのあとを　見するなりけり' },
+            { no: 23, kasenName: 'あわび貝', name: 'アワビノトコブシ', rarity: 2, source: '浦錦', author: '千首牡丹花', poem: 'なべて世の　こひ路にいかで　うつしけん　あわびのかいの　おのがおもひを' },
+            { no: 24, kasenName: 'かたし貝', name: 'ユキノカサ', rarity: 2, source: '後花園院宸百首', author: '', poem: '我袖は　いつかひかたの　かたし貝　あふてふことも　なみにしほれて' },
+            { no: 25, kasenName: 'うつせ貝', name: 'キセワタ', rarity: 3, source: '続後撰集', author: '好忠', poem: 'なみのうつ　みしまのうらの　うつせがい　むなしきからに　われやなるなん' },
+            { no: 26, kasenName: 'みなし貝', name: 'アカテツボ', rarity: 2, source: '末木抄', author: '光台院入道二品親王', poem: 'かみ島の　いそまのうらに　よる貝の　身はいたづらに　なりはてぬはた' },
+            { no: 27, kasenName: 'あさり貝', name: 'ヒメアサリ', rarity: 1, source: '新撰六帖', author: '光俊', poem: 'いせのうらの　しほひにあさり　もとめたる　かいをそたもつ　身をばすてつつ' },
+            { no: 28, kasenName: 'しお貝', name: 'フジノハナガイ', rarity: 1, source: '', author: '師兼', poem: 'いせのうみの　うらのしほがい　ひらひてふ　あまちに袖の　ぬれてかわかぬ' },
+            { no: 29, kasenName: 'ものあい貝', name: 'モノアラガイ', rarity: 3, source: '続松葉集', author: '宗恵', poem: 'たのもしな　ものあら貝の　つきぬべき　法の蓮の　うらにすむ身は' },
+            { no: 30, kasenName: 'かたつ貝', name: 'ネコガイ', rarity: 3, source: '海道記', author: '源光行', poem: 'たのみつる　人はなぎさの　かたつがい　あわぬにつけて　身をぞうらむる' },
+            { no: 31, kasenName: 'あし貝', name: 'バカガイ', rarity: 1, source: '浦錦', author: '津守国冬', poem: '海ばらや　なみにゆらゆゆ　あし貝の　かひある国と　なれるかしこさ' },
+            { no: 32, kasenName: 'みぞ貝', name: 'ミゾガイ', rarity: 1, source: '夫木抄', author: '俊頼', poem: '江の浜に　みぞ貝ひろう　うない子が　たわぶれにたに　とふ人もなし' },
+            { no: 33, kasenName: '蛤貝', name: 'ハマグリ', rarity: 1, source: '山家集', author: '西行法師', poem: '今ぞしる　ふたみのうらの　はまぐりを　貝あわせとぞ　おもふなりけり' },
+            { no: 34, kasenName: 'しじみ貝', name: 'シジミ', rarity: 1, source: '', author: '為尹卿', poem: 'しじみとる　かたたのうらの　あま人よ　こまかにいはば　かいぞ有べき' },
+            { no: 35, kasenName: '小貝', name: 'ツノガイ等', rarity: 2, source: '夫木抄', author: '源師光', poem: 'いせのうみ　きよきなぎさに　駒とめて　都のつとに　小がいひろはん' },
+            { no: 36, kasenName: '千種貝', name: 'チグサガイ', rarity: 2, source: '夫木抄', author: '読人不知', poem: '君が代の　ためしと見ゆる　長はまに　千種のかいの　かずもつきせじ' }
+        ];
+
+        const collectedShells = new Set();
+        let gameCleared = false;
+
+        function getRandomShell() {
+            // レア度が高くなるほど出現確率を激減させる
+            const weights = shellData.map(s => {
+                if (s.rarity === 1) return 100;
+                else if (s.rarity === 2) return 15;
+                else return 2; // レア度3は非常に出にくい
+            });
+            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+            let random = Math.random() * totalWeight;
+            for (let i = 0; i < shellData.length; i++) {
+                if (random < weights[i]) return shellData[i];
+                random -= weights[i];
+            }
+            return shellData[0];
+        }
+
+        // ==========================================
+        // 1. 画像テクスチャ生成処理 (フォールバック付)
+        // ==========================================
+        const textureLoader = new THREE.TextureLoader();
+
+        function createSpriteWithFallback(url, fallbackText, size) {
+            const material = new THREE.SpriteMaterial({ transparent: true });
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(0, 0, 128, 128);
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(0, 0, 128, 128);
+
+            ctx.font = '700 22px "Noto Sans JP", sans-serif'; 
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#333';
+            
+            if (fallbackText.length > 4) {
+                ctx.fillText(fallbackText.substring(0,4), 64, 50);
+                ctx.fillText(fallbackText.substring(4), 64, 80);
+            } else {
+                ctx.fillText(fallbackText, 64, 64);
+            }
+            const fallbackTexture = new THREE.CanvasTexture(canvas);
+
+            textureLoader.load(
+                url,
+                (texture) => { 
+                    material.map = texture; 
+                    material.needsUpdate = true; 
+                },
+                undefined,
+                (err) => {
+                    material.map = fallbackTexture;
+                    material.needsUpdate = true;
+                }
+            );
+            
+            material.map = fallbackTexture;
+            
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(size, size, size);
+            return sprite;
+        }
+
+        // ==========================================
+        // 2. UIイベント (コレクション確認)
+        // ==========================================
+        function updateCollectionUI() {
+            const grid = document.getElementById('shell-grid');
+            grid.innerHTML = '';
+            document.getElementById('collection-count').innerText = collectedShells.size;
+
+            shellData.forEach(shell => {
+                const isCollected = collectedShells.has(shell.no);
+                const div = document.createElement('div');
+                div.className = `shell-card ${isCollected ? '' : 'locked'}`;
+                
+                let stars = '';
+                for(let i=0; i<shell.rarity; i++) stars += '★';
+                
+                const imgSrc = `./images/${shell.no}.png`;
+
+                if (isCollected) {
+                    div.innerHTML = `
+                        <div class="no">No.${String(shell.no).padStart(2, '0')}</div>
+                        <div class="shell-image">
+                            <img src="${imgSrc}" alt="${shell.kasenName}" onerror="this.style.display='none'; this.parentNode.innerHTML='<span style=\\'color:#B0BEC5; font-size:12px;\\'>No Image</span>';">
+                        </div>
+                        <h3 class="names">${shell.kasenName}<small>${shell.name}</small></h3>
+                        <div class="rarity">${stars}</div>
+                        <div class="poem">「${shell.poem}」</div>
+                        <div class="author">${shell.source || '不明'} / ${shell.author || '不明'}</div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <div class="no">No.${String(shell.no).padStart(2, '0')}</div>
+                        <div class="shell-image" style="background:transparent; border:none;">
+                            <span style="font-size:24px; color:#ccc; font-weight:700;">?</span>
+                        </div>
+                    `;
+                }
+                grid.appendChild(div);
+            });
+        }
+
+        document.getElementById('bin-shell').addEventListener('click', () => {
+            updateCollectionUI();
+            document.getElementById('collection-modal').style.display = 'flex';
+        });
+
+        document.getElementById('close-modal').addEventListener('click', () => {
+            document.getElementById('collection-modal').style.display = 'none';
+        });
+
+        // ==========================================
+        // 3. 基本設定 (シーン、カメラ、レンダラー)
+        // ==========================================
+        const scene = new THREE.Scene();
+
+        function createSkyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2; canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+            // 元の青い空のグラデーション
+            gradient.addColorStop(0, '#4a90e2');
+            gradient.addColorStop(1, '#ffffff');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 2, 512);
+            return new THREE.CanvasTexture(canvas);
+        }
+        scene.background = createSkyTexture();
+        // 遠景を白に溶け込ませる (元の設定)
+        scene.fog = new THREE.FogExp2(0xffffff, 0.015); 
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        
+        function resetCamera() {
+            camera.position.set(40, 4, 45);
+            camera.lookAt(-30, 0, 0);
+        }
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        document.body.appendChild(renderer.domElement);
+
+        // 元のライト設定
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(10, 20, 10);
+        scene.add(directionalLight);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+
+        // ==========================================
+        // 4. 地形（砂浜と海）の作成
+        // ==========================================
+        function createNoiseTexture(baseColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256; canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = baseColor;
+            ctx.fillRect(0, 0, 256, 256);
+            const imgData = ctx.getImageData(0, 0, 256, 256);
+            for (let i = 0; i < imgData.data.length; i += 4) {
+                const noise = (Math.random() - 0.5) * 15;
+                imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
+                imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
+                imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
+            }
+            ctx.putImageData(imgData, 0, 0);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(10, 10);
+            return texture;
+        }
+
+        const planeSize = 100;
+        const sandGeo = new THREE.PlaneGeometry(planeSize, planeSize, 32, 32);
+        
+        // 元の砂の色 (#dcb98a)
+        const sandMat = new THREE.MeshStandardMaterial({
+            map: createNoiseTexture('#dcb98a'),
+            roughness: 1.0, metalness: 0.0
+        });
+        const sand = new THREE.Mesh(sandGeo, sandMat);
+        sand.rotation.x = -Math.PI / 2;
+        scene.add(sand);
+
+        // 海面シェーダー (綺麗だった青い海と波の表現)
+        const noiseGLSL = `
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
+            float snoise(vec2 v) {
+                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+                vec2 i  = floor(v + dot(v, C.yy) ); vec2 x0 = v -   i + dot(i, C.xx);
+                vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1; i = mod289(i);
+                vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+                m = m*m; m = m*m;
+                vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5);
+                vec3 a0 = x - ox; m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                vec3 g; g.x  = a0.x  * x0.x  + h.x  * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                return 130.0 * dot(m, g);
+            }
+        `;
+        const seaMat = new THREE.ShaderMaterial({
+            uniforms: { uTime: { value: 0 } },
+            vertexShader: `
+                varying vec2 vUv; 
+                uniform float uTime; 
+                ${noiseGLSL}
+                void main() {
+                    vUv = uv; vec3 pos = position;
+                    float tide = sin(uTime * 0.6) * 0.05 + 0.5;
+                    float waveArea = smoothstep(tide, tide + 0.1, vUv.y);
+                    float wave = snoise(vec2(pos.x * 0.1, pos.y * 0.1 + uTime * 0.5)) * 0.6;
+                    wave += snoise(vec2(pos.x * 0.3 - uTime * 0.8, pos.y * 0.3)) * 0.3;
+                    
+                    pos.z += wave * waveArea;
+                    
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec2 vUv; 
+                uniform float uTime; 
+                ${noiseGLSL}
+                void main() {
+                    // 以前の綺麗な青い海の色
+                    vec3 shallowColor = vec3(0.1, 0.6, 0.8);
+                    vec3 deepColor = vec3(0.0, 0.1, 0.4);
+                    vec3 foamColor = vec3(1.0, 1.0, 1.0);
+                    
+                    float tide = sin(uTime * 0.6) * 0.05 + 0.5;
+                    float noiseVal = snoise(vec2(vUv.x * 15.0, uTime * 0.2)) * 0.03;
+                    float edge = tide + noiseVal;
+                    
+                    vec3 color = mix(shallowColor, deepColor, smoothstep(edge, 1.0, vUv.y));
+                    
+                    // 海の基本透明度
+                    float alpha = smoothstep(edge - 0.01, edge + 0.03, vUv.y) * 0.85;
+                    
+                    // 波打ち際の泡
+                    float foamWidth = 0.008;
+                    float foam = smoothstep(edge - foamWidth, edge, vUv.y) - smoothstep(edge, edge + foamWidth * 2.0, vUv.y);
+                    foam *= smoothstep(0.1, 0.8, snoise(vec2(vUv.x * 50.0, vUv.y * 50.0 - uTime * 1.5)) * 0.5 + 0.5);
+                    
+                    // 波が引いた後の濡れた砂浜
+                    float minTide = 0.45 - 0.03;
+                    if (vUv.y < edge) { 
+                        float wetArea = smoothstep(minTide - 0.02, minTide + 0.03, vUv.y);
+                        color = vec3(0.0); 
+                        alpha = wetArea * 0.25; 
+                    }
+                    
+                    // 泡の合成
+                    color = mix(color, foamColor, foam); 
+                    alpha = mix(alpha, 1.0, foam);
+                    
+                    // 水面のきらめき
+                    if (vUv.y > edge + 0.02) {
+                        color += (snoise(vec2(vUv.x * 30.0 - uTime * 0.2, vUv.y * 30.0)) * 0.5 + 0.5) * 0.08 * foamColor;
+                    }
+                    
+                    gl_FragColor = vec4(color, alpha);
+                }
+            `,
+            transparent: true, side: THREE.DoubleSide
+        });
+        const sea = new THREE.Mesh(new THREE.PlaneGeometry(planeSize, planeSize, 256, 256), seaMat);
+        sea.rotation.x = -Math.PI / 2; sea.position.y = 0.05;
+        scene.add(sea);
+
+        // ==========================================
+        // 5. アイテム生成とゲーム管理
+        // ==========================================
+        const items = [];
+        let score = 0;
+        let stage = 1;
+        let isTransitioning = false;
+        
+        const SPRITE_SIZE = 2.0; 
+
+        function initStage() {
+            items.forEach(item => scene.remove(item));
+            items.length = 0;
+            isTransitioning = false;
+            document.getElementById('stageVal').innerText = stage;
+
+            resetCamera();
+
+            // ゴミの数を増やす (初期25個〜)
+            const trashCount = 20 + stage * 5; 
+            for (let i = 0; i < trashCount; i++) {
+                spawnTrashItem();
+            }
+            
+            // 貝殻の数を減らす (1ステージにつき2〜3個)
+            const shellCount = 2 + Math.floor(Math.random() * 2);
+            for (let i = 0; i < shellCount; i++) {
+                spawnShellItem();
+            }
+            updateUI();
+        }
+
+        function spawnTrashItem() {
+            const info = getRandomTrash();
+            const url = `./images/${info.name}.png`;
+            const sprite = createSpriteWithFallback(url, info.name, SPRITE_SIZE);
+
+            sprite.userData = { 
+                type: info.type, 
+                collected: false, 
+                originalPos: new THREE.Vector3(),
+                trashInfo: info
+            };
+            
+            const px = (Math.random() - 0.5) * 80; 
+            const pz = 5 + Math.random() * 40;     
+            sprite.position.set(px, sprite.scale.y / 2, pz);
+            sprite.userData.originalPos.copy(sprite.position);
+            
+            scene.add(sprite);
+            items.push(sprite);
+        }
+
+        function spawnShellItem() {
+            const info = getRandomShell();
+            const url = `./images/${info.no}.png`;
+            const sprite = createSpriteWithFallback(url, info.kasenName, SPRITE_SIZE);
+
+            sprite.userData = { 
+                type: 'shell', 
+                collected: false, 
+                originalPos: new THREE.Vector3(),
+                shellInfo: info
+            };
+            
+            const px = (Math.random() - 0.5) * 80; 
+            const pz = 5 + Math.random() * 40;     
+            sprite.position.set(px, sprite.scale.y / 2, pz);
+            sprite.userData.originalPos.copy(sprite.position);
+            
+            scene.add(sprite);
+            items.push(sprite);
+        }
+
+        function updateUI() {
+            const remain = items.filter(i => (i.userData.type !== 'shell') && !i.userData.collected).length;
+            document.getElementById('remainVal').innerText = remain;
+            if (remain === 0 && !isTransitioning && !gameCleared) stageClear();
+        }
+
+        function showEffect(text, x, y, isError = false) {
+            const effect = document.createElement('div');
+            effect.className = 'get-effect' + (isError ? ' error-effect' : '');
+            effect.innerText = text;
+            effect.style.left = `${x}px`; effect.style.top = `${y}px`;
+            document.body.appendChild(effect);
+            setTimeout(() => effect.remove(), 1000);
+        }
+
+        function showMessage(htmlContent, duration) {
+            const msg = document.getElementById('message-layer');
+            document.getElementById('msg-text').innerHTML = htmlContent;
+            msg.style.display = 'block';
+            if (duration) {
+                setTimeout(() => { msg.style.display = 'none'; }, duration);
+            }
+        }
+
+        function stageClear() {
+            if (gameCleared) return;
+            isTransitioning = true;
+            showMessage(`<div>STAGE ${stage} CLEAR</div><div style="font-size:0.6em; margin-top:20px;">Next Stage...</div>`, 3000);
+            
+            setTimeout(() => {
+                stage++;
+                initStage();
+            }, 3000);
+        }
+
+        function gameComplete() {
+            gameCleared = true;
+            isTransitioning = true;
+            showMessage(`<div style="line-height:1.4;">GALLERY COMPLETE</div><span style="font-size:0.5em;">全36種の歌仙貝を収集しました<br>最終スコア: ${score} pt</span>`);
+        }
+
+        // ==========================================
+        // 6. ドラッグ＆ドロップ実装
+        // ==========================================
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        let draggingItem = null;
+        let dragOffset = new THREE.Vector3();
+
+        window.addEventListener('pointerdown', (e) => {
+            if (isTransitioning || gameCleared || e.target.closest('#dpad') || e.target.closest('#trash-bins') || e.target.closest('#collection-modal')) return;
+
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            if (clientX === undefined) return;
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersects = raycaster.intersectObjects(items.filter(i => !i.userData.collected));
+            if (intersects.length > 0) {
+                const item = intersects[0].object;
+                
+                draggingItem = item;
+                draggingItem.userData.originalPos.copy(draggingItem.position);
+                
+                const intersectPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(floorPlane, intersectPoint);
+                dragOffset.copy(intersectPoint).sub(draggingItem.position);
+                
+                document.body.style.cursor = 'grabbing';
+            }
+        });
+
+        window.addEventListener('pointermove', (e) => {
+            document.querySelectorAll('.bin').forEach(b => b.classList.remove('hover'));
+            
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            
+            if (clientX === undefined) return;
+
+            const hoveredEl = document.elementFromPoint(clientX, clientY);
+            if (hoveredEl && hoveredEl.closest('.bin')) {
+                hoveredEl.closest('.bin').classList.add('hover');
+            }
+
+            if (!draggingItem) return;
+
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const intersectPoint = new THREE.Vector3();
+            if (raycaster.ray.intersectPlane(floorPlane, intersectPoint)) {
+                intersectPoint.sub(dragOffset);
+                intersectPoint.x = THREE.MathUtils.clamp(intersectPoint.x, -45, 45);
+                intersectPoint.z = THREE.MathUtils.clamp(intersectPoint.z, 2, 45);
+                
+                draggingItem.position.x = intersectPoint.x;
+                draggingItem.position.z = intersectPoint.z;
+            }
+        });
+
+        window.addEventListener('pointerup', (e) => {
+            document.body.style.cursor = 'default';
+            document.querySelectorAll('.bin').forEach(b => b.classList.remove('hover'));
+
+            if (!draggingItem) return;
+
+            const item = draggingItem;
+            draggingItem = null;
+            
+            const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+            const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+
+            const type = item.userData.type;
+            const el = document.elementFromPoint(clientX, clientY);
+            const dropBin = el ? el.closest('.bin') : null;
+
+            if (dropBin) {
+                if ((type === 'burnable' && dropBin.id === 'bin-burnable') || 
+                    (type === 'unburnable' && dropBin.id === 'bin-unburnable') ||
+                    (type === 'large' && dropBin.id === 'bin-large') ||
+                    (type === 'shell' && dropBin.id === 'bin-shell')) {
+                    
+                    let points = 10;
+                    if (type === 'large') points = 20;
+                    if (type === 'shell') points = 30;
+
+                    if (type === 'shell' && item.userData.shellInfo) {
+                        const info = item.userData.shellInfo;
+                        if (!collectedShells.has(info.no)) {
+                            collectedShells.add(info.no);
+                            showEffect(`NEW! ${info.kasenName}`, clientX, clientY - 40);
+                            
+                            if (collectedShells.size === 36) {
+                                collectItem(item, points, clientX, clientY);
+                                setTimeout(gameComplete, 1000);
+                                return;
+                            }
+                        }
+                    }
+                    collectItem(item, points, clientX, clientY);
+
+                } else {
+                    showEffect('Miss!', clientX, clientY, true);
+                    item.position.copy(item.userData.originalPos);
+                }
+            } else {
+                item.userData.originalPos.copy(item.position);
+            }
+        });
+
+        function collectItem(item, points, x, y) {
+            scene.remove(item);
+            items.splice(items.indexOf(item), 1);
+            score += points;
+            document.getElementById('scoreVal').innerText = score;
+            showEffect(`+${points}`, x, y);
+            updateUI();
+        }
+
+        // ==========================================
+        // 7. カメラ移動制御 (WASD & UIボタン)
+        // ==========================================
+        const keys = { w: false, a: false, s: false, d: false };
+
+        window.addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = true; });
+        window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = false; });
+
+        const setupBtn = (id, key) => {
+            const btn = document.getElementById(id);
+            btn.addEventListener('pointerdown', (e) => { e.preventDefault(); keys[key] = true; btn.classList.add('active'); });
+            btn.addEventListener('pointerup', (e) => { e.preventDefault(); keys[key] = false; btn.classList.remove('active'); });
+            btn.addEventListener('pointerleave', (e) => { e.preventDefault(); keys[key] = false; btn.classList.remove('active'); });
+        };
+        setupBtn('btn-up', 'w'); setupBtn('btn-down', 's'); setupBtn('btn-left', 'a'); setupBtn('btn-right', 'd');
+
+        function updateCamera() {
+            if (isTransitioning || gameCleared) return;
+            const speed = 0.3;
+            const forward = new THREE.Vector3();
+            camera.getWorldDirection(forward); forward.y = 0; forward.normalize();
+            const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+            if (keys.w) camera.position.addScaledVector(forward, speed);
+            if (keys.s) camera.position.addScaledVector(forward, -speed);
+            if (keys.a) camera.position.addScaledVector(right, -speed);
+            if (keys.d) camera.position.addScaledVector(right, speed);
+
+            if (camera.position.z < 2) camera.position.z = 2; 
+            if (camera.position.z > 45) camera.position.z = 45;
+            if (camera.position.x < -45) camera.position.x = -45;
+            if (camera.position.x > 45) camera.position.x = 45;
+            camera.position.y = 4;
+        }
+
+        // ==========================================
+        // 8. アニメーションループ
+        // ==========================================
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            seaMat.uniforms.uTime.value = clock.getElapsedTime();
+            updateCamera();
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        initStage();
+        animate();
+    </script>
+</body>
+</html>
