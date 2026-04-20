@@ -173,19 +173,77 @@
             100% { transform: translate(-50%, -100px) scale(1); opacity: 0; }
         }
 
-        #message-layer {
+        /* スタート画面・クリア画面（モーダル）共通 */
+        .overlay-screen {
             position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-weight: 700;
-            color: #fff;
-            text-shadow: 0 0 10px rgba(0,0,0,0.5), 2px 2px 4px #000;
-            background: transparent;
-            pointer-events: none;
-            display: none;
-            z-index: 30;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(8px);
             text-align: center;
-            letter-spacing: 2px;
+        }
+        
+        .overlay-screen h1 { color: #4FC3F7; font-size: 36px; margin-bottom: 10px; text-shadow: none; }
+        .tutorial-box {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 12px;
+            padding: 20px 30px;
+            margin: 20px 0;
+            text-align: left;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            max-width: 500px;
+        }
+        .tutorial-box ul { padding-left: 20px; line-height: 1.8; color: #555; }
+        .tutorial-box li { margin-bottom: 8px; }
+
+        .btn-action {
+            padding: 16px 48px;
+            font-size: 20px;
+            font-weight: 700;
+            background: #4FC3F7;
+            color: white;
+            border: none;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(79, 195, 247, 0.4);
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn-action:hover:not(:disabled) { background: #29B6F6; transform: translateY(-2px); }
+        .btn-action:disabled { background: #CFD8DC; box-shadow: none; cursor: not-allowed; }
+
+        /* クリア時の貝殻リスト */
+        #clear-shell-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            margin: 20px 0 30px;
+            min-height: 120px;
+            max-width: 600px;
+        }
+        .clear-shell-item {
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            opacity: 0;
+            transform: scale(0.5);
+        }
+        .clear-shell-item img { width: 50px; height: 50px; object-fit: contain; margin: 5px 0; }
+        @keyframes popIn {
+            100% { transform: scale(1); opacity: 1; }
         }
 
         /* ギャラリー風 コレクションモーダル */
@@ -230,7 +288,6 @@
             background: #f5f5f5;
             border-radius: 8px;
         }
-        /* スクロールバーのスタイリング */
         #shell-grid::-webkit-scrollbar { width: 8px; }
         #shell-grid::-webkit-scrollbar-track { background: transparent; }
         #shell-grid::-webkit-scrollbar-thumb { background: #CFD8DC; border-radius: 4px; }
@@ -278,7 +335,7 @@
 
         /* スマホ用レスポンシブ対応 */
         @media (max-width: 600px) {
-            h1 { font-size: 18px; }
+            #ui h1 { font-size: 18px; }
             .status { font-size: 14px; }
             #scoreBox { font-size: 16px; padding: 8px 16px; top: 15px; right: 15px; }
             #ui { top: 15px; left: 15px; }
@@ -302,7 +359,9 @@
             }
             #dpad button { font-size: 16px; }
             
-            #message-layer { font-size: 24px !important; }
+            .overlay-screen h1 { font-size: 28px; }
+            .tutorial-box { margin: 15px; padding: 15px 20px; font-size: 12px; }
+            
             #shell-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; padding: 10px; }
             .shell-card { padding: 12px; }
             .shell-image { height: 90px; }
@@ -333,7 +392,29 @@
         <button id="btn-right">▶</button>
     </div>
 
-    <div id="message-layer"><span id="msg-text"></span></div>
+    <!-- スタート画面 (チュートリアル＆ローディング) -->
+    <div id="start-screen" class="overlay-screen">
+        <h1>増穂浦でBeach Clean</h1>
+        <div class="tutorial-box">
+            <h3 style="margin-top:0; color:#333;">遊び方</h3>
+            <ul>
+                <li>ビーチに落ちているゴミを下の袋・箱へドラッグして分別してください。</li>
+                <li>貝殻を見つけたら右下の「コレクション」箱に入れてください(30pt獲得)。</li>
+                <li>画面右下のボタン、またはキーボードの WASD キーで移動できます。</li>
+                <li>全種類のゴミを片付けると次のステージへ進みます。</li>
+                <li>幻の<strong>歌仙貝(全36種)</strong>をコンプリートしよう！</li>
+            </ul>
+        </div>
+        <button id="start-btn" class="btn-action" disabled>Loading Assets... 0%</button>
+    </div>
+
+    <!-- ステージクリア画面 (リザルト＆裏読み込み) -->
+    <div id="clear-screen" class="overlay-screen" style="display: none;">
+        <h2 id="clear-stage-title" style="font-size: 32px; color: #4FC3F7; margin-bottom: 5px;">STAGE CLEAR!</h2>
+        <p id="clear-desc" style="color: #666; margin-bottom: 20px;">このステージで見つけた貝殻</p>
+        <div id="clear-shell-list"></div>
+        <button id="next-stage-btn" class="btn-action" style="display: none;">NEXT STAGE</button>
+    </div>
 
     <!-- ギャラリー風コレクションモーダル -->
     <div id="collection-modal">
@@ -415,13 +496,13 @@
 
         const collectedShells = new Set();
         let gameCleared = false;
+        let currentStageShells = []; // そのステージで取得した貝殻を保持
 
         function getRandomShell() {
-            // レア度が高くなるほど出現確率を激減させる
             const weights = shellData.map(s => {
                 if (s.rarity === 1) return 100;
                 else if (s.rarity === 2) return 15;
-                else return 2; // レア度3は非常に出にくい
+                else return 2; 
             });
             const totalWeight = weights.reduce((sum, w) => sum + w, 0);
             let random = Math.random() * totalWeight;
@@ -433,9 +514,44 @@
         }
 
         // ==========================================
-        // 1. 画像テクスチャ生成処理 (フォールバック付)
+        // 1. 画像テクスチャ生成とプリロード処理
         // ==========================================
         const textureLoader = new THREE.TextureLoader();
+        const textureCache = {};
+
+        // 起動時に全画像をバックグラウンドでロードする関数
+        function preloadAssets() {
+            const startBtn = document.getElementById('start-btn');
+            const allUrls = [
+                ...trashData.map(t => `./images/${t.name}.png`),
+                ...shellData.map(s => `./images/${s.no}.png`)
+            ];
+            
+            let loadedCount = 0;
+
+            function checkProgress() {
+                const progress = Math.floor((loadedCount / allUrls.length) * 100);
+                startBtn.innerText = `Loading Assets... ${progress}%`;
+                if (loadedCount === allUrls.length) {
+                    startBtn.innerText = 'START CLEANING';
+                    startBtn.disabled = false;
+                }
+            }
+
+            allUrls.forEach(url => {
+                textureLoader.load(
+                    url,
+                    (tex) => { 
+                        textureCache[url] = tex; 
+                        loadedCount++; checkProgress(); 
+                    },
+                    undefined,
+                    (err) => { 
+                        loadedCount++; checkProgress(); // エラー時も進捗は進める
+                    }
+                );
+            });
+        }
 
         function createSpriteWithFallback(url, fallbackText, size) {
             const material = new THREE.SpriteMaterial({ transparent: true });
@@ -461,20 +577,17 @@
             }
             const fallbackTexture = new THREE.CanvasTexture(canvas);
 
-            textureLoader.load(
-                url,
-                (texture) => { 
-                    material.map = texture; 
-                    material.needsUpdate = true; 
-                },
-                undefined,
-                (err) => {
-                    material.map = fallbackTexture;
+            if (textureCache[url]) {
+                material.map = textureCache[url];
+            } else {
+                material.map = fallbackTexture;
+                // プリロードで漏れたりエラーだった場合の後追いロード
+                textureLoader.load(url, (tex) => {
+                    textureCache[url] = tex;
+                    material.map = tex;
                     material.needsUpdate = true;
-                }
-            );
-            
-            material.map = fallbackTexture;
+                });
+            }
             
             const sprite = new THREE.Sprite(material);
             sprite.scale.set(size, size, size);
@@ -482,8 +595,20 @@
         }
 
         // ==========================================
-        // 2. UIイベント (コレクション確認)
+        // 2. UIイベント (スタート/次ステージ/コレクション確認)
         // ==========================================
+        
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('start-screen').style.display = 'none';
+            isTransitioning = false; // 操作を許可
+        });
+
+        document.getElementById('next-stage-btn').addEventListener('click', () => {
+            document.getElementById('clear-screen').style.display = 'none';
+            currentStageShells = []; // リセット
+            isTransitioning = false; // 次のステージの操作を許可
+        });
+
         function updateCollectionUI() {
             const grid = document.getElementById('shell-grid');
             grid.innerHTML = '';
@@ -541,7 +666,6 @@
             canvas.width = 2; canvas.height = 512;
             const ctx = canvas.getContext('2d');
             const gradient = ctx.createLinearGradient(0, 0, 0, 512);
-            // 元の青い空のグラデーション
             gradient.addColorStop(0, '#4a90e2');
             gradient.addColorStop(1, '#ffffff');
             ctx.fillStyle = gradient;
@@ -549,7 +673,6 @@
             return new THREE.CanvasTexture(canvas);
         }
         scene.background = createSkyTexture();
-        // 遠景を白に溶け込ませる (元の設定)
         scene.fog = new THREE.FogExp2(0xffffff, 0.015); 
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -564,7 +687,6 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
-        // 元のライト設定
         const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
         directionalLight.position.set(10, 20, 10);
         scene.add(directionalLight);
@@ -595,8 +717,6 @@
 
         const planeSize = 100;
         const sandGeo = new THREE.PlaneGeometry(planeSize, planeSize, 32, 32);
-        
-        // 元の砂の色 (#dcb98a)
         const sandMat = new THREE.MeshStandardMaterial({
             map: createNoiseTexture('#dcb98a'),
             roughness: 1.0, metalness: 0.0
@@ -605,7 +725,6 @@
         sand.rotation.x = -Math.PI / 2;
         scene.add(sand);
 
-        // 海面シェーダー (綺麗だった青い海と波の表現)
         const noiseGLSL = `
             vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
             vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
@@ -647,7 +766,6 @@
                 uniform float uTime; 
                 ${noiseGLSL}
                 void main() {
-                    // 以前の綺麗な青い海の色
                     vec3 shallowColor = vec3(0.1, 0.6, 0.8);
                     vec3 deepColor = vec3(0.0, 0.1, 0.4);
                     vec3 foamColor = vec3(1.0, 1.0, 1.0);
@@ -658,15 +776,12 @@
                     
                     vec3 color = mix(shallowColor, deepColor, smoothstep(edge, 1.0, vUv.y));
                     
-                    // 海の基本透明度
                     float alpha = smoothstep(edge - 0.01, edge + 0.03, vUv.y) * 0.85;
                     
-                    // 波打ち際の泡
                     float foamWidth = 0.008;
                     float foam = smoothstep(edge - foamWidth, edge, vUv.y) - smoothstep(edge, edge + foamWidth * 2.0, vUv.y);
                     foam *= smoothstep(0.1, 0.8, snoise(vec2(vUv.x * 50.0, vUv.y * 50.0 - uTime * 1.5)) * 0.5 + 0.5);
                     
-                    // 波が引いた後の濡れた砂浜
                     float minTide = 0.45 - 0.03;
                     if (vUv.y < edge) { 
                         float wetArea = smoothstep(minTide - 0.02, minTide + 0.03, vUv.y);
@@ -674,11 +789,9 @@
                         alpha = wetArea * 0.25; 
                     }
                     
-                    // 泡の合成
                     color = mix(color, foamColor, foam); 
                     alpha = mix(alpha, 1.0, foam);
                     
-                    // 水面のきらめき
                     if (vUv.y > edge + 0.02) {
                         color += (snoise(vec2(vUv.x * 30.0 - uTime * 0.2, vUv.y * 30.0)) * 0.5 + 0.5) * 0.08 * foamColor;
                     }
@@ -698,30 +811,31 @@
         const items = [];
         let score = 0;
         let stage = 1;
-        let isTransitioning = false;
+        let isTransitioning = true; // 初期はスタート画面表示中のため操作不可
         
         const SPRITE_SIZE = 2.0; 
 
         function initStage() {
             items.forEach(item => scene.remove(item));
             items.length = 0;
-            isTransitioning = false;
             document.getElementById('stageVal').innerText = stage;
 
             resetCamera();
 
-            // ゴミの数を増やす (初期25個〜)
-            const trashCount = 20 + stage * 5; 
+            // ゴミの数を10個減らした (初期10個〜)
+            const trashCount = 10 + stage * 5; 
             for (let i = 0; i < trashCount; i++) {
                 spawnTrashItem();
             }
             
-            // 貝殻の数を減らす (1ステージにつき2〜3個)
             const shellCount = 2 + Math.floor(Math.random() * 2);
             for (let i = 0; i < shellCount; i++) {
                 spawnShellItem();
             }
-            updateUI();
+            
+            // 残り数だけ更新（stageClearは呼ばない）
+            const remain = items.filter(i => (i.userData.type !== 'shell') && !i.userData.collected).length;
+            document.getElementById('remainVal').innerText = remain;
         }
 
         function spawnTrashItem() {
@@ -781,30 +895,69 @@
             setTimeout(() => effect.remove(), 1000);
         }
 
-        function showMessage(htmlContent, duration) {
-            const msg = document.getElementById('message-layer');
-            document.getElementById('msg-text').innerHTML = htmlContent;
-            msg.style.display = 'block';
-            if (duration) {
-                setTimeout(() => { msg.style.display = 'none'; }, duration);
-            }
-        }
-
+        // ステージクリア処理と貝殻のアンベールアニメーション
         function stageClear() {
             if (gameCleared) return;
-            isTransitioning = true;
-            showMessage(`<div>STAGE ${stage} CLEAR</div><div style="font-size:0.6em; margin-top:20px;">Next Stage...</div>`, 3000);
+            isTransitioning = true; // 演出中のため操作不可に
             
-            setTimeout(() => {
-                stage++;
-                initStage();
-            }, 3000);
+            // ★裏で次のステージのアイテム配置とロードを行う
+            stage++;
+            initStage();
+
+            // モーダルUIの準備
+            const clearScreen = document.getElementById('clear-screen');
+            const title = document.getElementById('clear-stage-title');
+            const list = document.getElementById('clear-shell-list');
+            const nextBtn = document.getElementById('next-stage-btn');
+            
+            title.innerText = `STAGE ${stage - 1} CLEAR!`;
+            list.innerHTML = '';
+            nextBtn.style.display = 'none';
+            clearScreen.style.display = 'flex';
+            
+            // 拾った貝殻のアニメーション表示
+            if (currentStageShells.length === 0) {
+                list.innerHTML = '<p style="color:#666; width:100%; text-align:center;">このステージでは貝殻が見つかりませんでした。</p>';
+                nextBtn.style.display = 'block';
+            } else {
+                let delay = 0;
+                currentStageShells.forEach((shellInfo, index) => {
+                    setTimeout(() => {
+                        const item = document.createElement('div');
+                        item.className = 'clear-shell-item';
+                        item.innerHTML = `
+                            <div style="font-size:10px; color:#999; width:100%; text-align:left;">No.${String(shellInfo.no).padStart(2, '0')}</div>
+                            <img src="./images/${shellInfo.no}.png" onerror="this.style.display='none'; this.parentNode.innerHTML+='<span style=\\'font-size:30px; color:#ccc;\\'>🐚</span>';">
+                            <span style="font-size:11px; font-weight:700; margin-top:5px; text-align:center;">${shellInfo.kasenName}</span>
+                        `;
+                        list.appendChild(item);
+                        
+                        // 最後の貝が表示されたら少し待ってNEXTボタンを出す
+                        if (index === currentStageShells.length - 1) {
+                            setTimeout(() => { nextBtn.style.display = 'block'; }, 600);
+                        }
+                    }, delay);
+                    delay += 600; // 0.6秒間隔で順番に表示
+                });
+            }
         }
 
         function gameComplete() {
             gameCleared = true;
             isTransitioning = true;
-            showMessage(`<div style="line-height:1.4;">GALLERY COMPLETE</div><span style="font-size:0.5em;">全36種の歌仙貝を収集しました<br>最終スコア: ${score} pt</span>`);
+            
+            const clearScreen = document.getElementById('clear-screen');
+            const title = document.getElementById('clear-stage-title');
+            const desc = document.getElementById('clear-desc');
+            const list = document.getElementById('clear-shell-list');
+            const nextBtn = document.getElementById('next-stage-btn');
+            
+            title.innerText = "GALLERY COMPLETE!!";
+            title.style.color = "#F57F17";
+            desc.innerHTML = `全36種の歌仙貝を収集しました！<br>最終スコア: ${score} pt`;
+            list.innerHTML = '';
+            nextBtn.style.display = 'none';
+            clearScreen.style.display = 'flex';
         }
 
         // ==========================================
@@ -817,7 +970,7 @@
         let dragOffset = new THREE.Vector3();
 
         window.addEventListener('pointerdown', (e) => {
-            if (isTransitioning || gameCleared || e.target.closest('#dpad') || e.target.closest('#trash-bins') || e.target.closest('#collection-modal')) return;
+            if (isTransitioning || gameCleared || e.target.closest('#dpad') || e.target.closest('#trash-bins') || e.target.closest('.overlay-screen')) return;
 
             const clientX = e.clientX || (e.touches && e.touches[0].clientX);
             const clientY = e.clientY || (e.touches && e.touches[0].clientY);
@@ -901,13 +1054,15 @@
 
                     if (type === 'shell' && item.userData.shellInfo) {
                         const info = item.userData.shellInfo;
+                        currentStageShells.push(info); // このステージで拾った貝として記録
+
                         if (!collectedShells.has(info.no)) {
                             collectedShells.add(info.no);
                             showEffect(`NEW! ${info.kasenName}`, clientX, clientY - 40);
                             
                             if (collectedShells.size === 36) {
                                 collectItem(item, points, clientX, clientY);
-                                setTimeout(gameComplete, 1000);
+                                setTimeout(gameComplete, 1500);
                                 return;
                             }
                         }
@@ -968,7 +1123,7 @@
         }
 
         // ==========================================
-        // 8. アニメーションループ
+        // 8. アニメーションループ と 初期実行
         // ==========================================
         const clock = new THREE.Clock();
 
@@ -985,8 +1140,11 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
+        // 実行フロー：アセットプリロード -> 初期配置 -> 裏でアニメーション開始
+        preloadAssets();
         initStage();
         animate();
+
     </script>
 </body>
 </html>
