@@ -3,1147 +3,757 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>増穂浦でBeach Clean</title>
-    <!-- Noto Sans JP フォントの読み込み -->
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
+    <title>36歌仙貝 スライドパズル</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --primary: #0056b3;
+            --secondary: #e3f2fd;
+            --accent: #f57f17;
+            --text-main: #333;
+            --bg-color: #fafafa;
+        }
+
         body {
             margin: 0;
-            overflow: hidden;
-            background-color: #ffffff; 
+            padding: 0;
+            background-color: var(--bg-color);
             font-family: 'Noto Sans JP', sans-serif;
-            touch-action: none;
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
             user-select: none;
-            color: #333;
-        }
-        canvas {
-            display: block;
-        }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            color: white;
-            text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
-            pointer-events: none;
-            z-index: 10;
-        }
-        h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: 2px; color: #fff; }
-        .status { font-size: 16px; font-weight: 700; margin: 8px 0; color: #fff; }
-        
-        #scoreBox {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            padding: 10px 24px;
-            border-radius: 30px;
-            font-size: 20px;
-            font-weight: 700;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            z-index: 10;
-            pointer-events: none;
-            text-align: right;
-            backdrop-filter: blur(4px);
         }
 
-        /* ゴミ袋・箱 UI */
-        #trash-bins {
+        /* 共通のオーバーレイ画面 (Start, Result, Quiz, Clear) */
+        .screen {
             position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.95);
             display: flex;
-            gap: 20px;
-            z-index: 10;
-            align-items: flex-end;
-            width: 90%;
+            flex-direction: column;
             justify-content: center;
+            align-items: center;
+            z-index: 100;
+            backdrop-filter: blur(5px);
+            transition: opacity 0.3s;
         }
-        .bin {
+        .hidden {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        h1, h2 { font-family: 'Noto Serif JP', serif; }
+        
+        /* ゲームメインUI */
+        #game-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ヘッダー：ライフとステージ */
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .stage-info {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--primary);
+        }
+        .life-info {
+            font-size: 18px;
+            font-weight: bold;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .life-info span {
+            color: #d32f2f;
+            font-size: 22px;
+        }
+
+        /* ライフバー */
+        .life-bar-container {
+            width: 100%;
+            height: 10px;
+            background: #e0e0e0;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        #life-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #4caf50, #8bc34a);
+            width: 100%;
+            transition: width 1s linear, background-color 0.3s;
+        }
+        #life-bar.danger { background: linear-gradient(90deg, #f44336, #ff9800); }
+
+        /* パズルエリア */
+        #puzzle-board {
+            width: 300px;
+            height: 300px;
+            background: #ccc;
+            position: relative;
+            border: 4px solid var(--primary);
+            border-radius: 4px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            overflow: hidden;
+        }
+
+        .piece {
             width: 100px;
             height: 100px;
-            background: rgba(255, 255, 255, 0.95);
-            border: 3px solid;
-            border-radius: 20px 20px 40px 40px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-weight: 700;
-            font-size: 13px;
-            color: #333;
-            user-select: none;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-            touch-action: none;
-            position: relative;
-        }
-        .bin:not(#bin-large):not(#bin-shell)::before {
-            content: '';
             position: absolute;
-            top: -12px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 24px;
-            height: 12px;
-            background: inherit;
-            border-top: 3px solid;
-            border-left: 3px solid;
-            border-right: 3px solid;
-            border-radius: 8px 8px 0 0;
-            border-color: inherit;
-        }
-        .bin.hover { transform: scale(1.08) translateY(-8px); box-shadow: 0 12px 24px rgba(0,0,0,0.2); }
-        
-        #bin-burnable { border-color: #e57373; color: #c62828; }
-        #bin-burnable.hover { background: #ffebee; }
-        
-        #bin-unburnable { border-color: #64b5f6; color: #1565c0; }
-        #bin-unburnable.hover { background: #e3f2fd; }
-        
-        #bin-large { 
-            border-radius: 12px; 
-            border-color: #8D6E63; 
-            color: #4E342E; 
-            background: rgba(239, 235, 233, 0.95);
-            height: 90px;
-        }
-        #bin-large.hover { background: #D7CCC8; }
-
-        /* コレクション箱 */
-        #bin-shell {
-            border-radius: 12px;
-            border-color: #FBC02D; 
-            color: #F57F17;
-            background: rgba(255, 249, 196, 0.95);
-            height: 90px;
+            background-size: 300px 300px;
+            border: 1px solid rgba(255,255,255,0.5);
+            box-sizing: border-box;
             cursor: pointer;
-        }
-        #bin-shell.hover { background: #FFF59D; }
-        #bin-shell span { font-size: 10px; font-weight: 300; margin-top: 6px; color: #666; pointer-events: none;}
-
-        /* 十字コントローラー */
-        #dpad {
-            position: absolute;
-            bottom: 40px;
-            right: 40px;
-            display: grid;
-            grid-template-columns: 50px 50px 50px;
-            grid-template-rows: 50px 50px 50px;
-            gap: 6px;
-            user-select: none;
-            z-index: 10;
-        }
-        #btn-up { grid-column: 2; grid-row: 1; }
-        #btn-left { grid-column: 1; grid-row: 2; }
-        #btn-down { grid-column: 2; grid-row: 3; }
-        #btn-right { grid-column: 3; grid-row: 2; }
-        #dpad button {
-            background: rgba(255, 255, 255, 0.5);
-            border: 2px solid rgba(255, 255, 255, 0.8);
-            border-radius: 12px;
-            font-size: 18px;
-            color: #333;
-            cursor: pointer;
-            touch-action: none;
-            backdrop-filter: blur(4px);
-            transition: background 0.2s;
-        }
-        #dpad button:active, #dpad button.active { background: rgba(255, 255, 255, 0.9); }
-
-        /* エフェクト */
-        .get-effect {
-            position: absolute;
-            color: #ffeb3b;
-            font-weight: 700;
-            font-size: 24px;
-            text-shadow: 1px 1px 2px #000;
-            pointer-events: none;
-            animation: floatUp 1s ease-out forwards;
-            z-index: 20;
-            transform: translate(-50%, -50%);
-        }
-        .error-effect { color: #f44336; }
-        @keyframes floatUp {
-            0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
-            20% { transform: translate(-50%, -70px) scale(1.1); opacity: 1; }
-            100% { transform: translate(-50%, -100px) scale(1); opacity: 0; }
+            transition: transform 0.15s ease-out;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
         }
 
-        /* スタート画面・クリア画面（モーダル）共通 */
-        .overlay-screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.95);
-            z-index: 200;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            backdrop-filter: blur(8px);
-            text-align: center;
-        }
-        
-        .overlay-screen h1 { color: #4FC3F7; font-size: 36px; margin-bottom: 10px; text-shadow: none; }
-        .tutorial-box {
-            background: #f5f5f5;
-            border: 1px solid #ddd;
-            border-radius: 12px;
-            padding: 20px 30px;
-            margin: 20px 0;
-            text-align: left;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            max-width: 500px;
-        }
-        .tutorial-box ul { padding-left: 20px; line-height: 1.8; color: #555; }
-        .tutorial-box li { margin-bottom: 8px; }
-
-        .btn-action {
-            padding: 16px 48px;
-            font-size: 20px;
-            font-weight: 700;
-            background: #4FC3F7;
+        /* ボタン類 */
+        .btn {
+            background: var(--primary);
             color: white;
             border: none;
-            border-radius: 40px;
+            padding: 12px 32px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 30px;
             cursor: pointer;
-            box-shadow: 0 4px 10px rgba(79, 195, 247, 0.4);
-            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            transition: transform 0.1s, background 0.2s;
             font-family: inherit;
+            margin-top: 20px;
         }
-        .btn-action:hover:not(:disabled) { background: #29B6F6; transform: translateY(-2px); }
-        .btn-action:disabled { background: #CFD8DC; box-shadow: none; cursor: not-allowed; }
+        .btn:hover { background: #003d82; transform: translateY(-2px); }
+        .btn:active { transform: translateY(0); }
 
-        /* クリア時の貝殻リスト */
-        #clear-shell-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 15px;
-            justify-content: center;
-            margin: 20px 0 30px;
-            min-height: 120px;
-            max-width: 600px;
-        }
-        .clear-shell-item {
-            background: #fff;
-            border: 1px solid #eee;
-            border-radius: 8px;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 80px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            opacity: 0;
-            transform: scale(0.5);
-        }
-        .clear-shell-item img { width: 50px; height: 50px; object-fit: contain; margin: 5px 0; }
-        @keyframes popIn {
-            100% { transform: scale(1); opacity: 1; }
-        }
-
-        /* ギャラリー風 コレクションモーダル */
-        #collection-modal {
-            display: none;
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 100;
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(8px);
-        }
-        .modal-content {
-            width: 90%; max-width: 900px;
-            height: 85%;
-            background: #fff;
-            border-radius: 12px;
+        /* スタート画面 */
+        #start-screen h1 { font-size: 32px; color: var(--primary); margin-bottom: 5px; }
+        #start-screen .subtitle { font-size: 16px; color: #666; margin-bottom: 30px; }
+        .instruction {
+            background: var(--secondary);
             padding: 20px;
-            display: flex;
-            flex-direction: column;
-            position: relative;
+            border-radius: 12px;
+            text-align: left;
+            max-width: 80%;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            font-size: 14px;
         }
-        .close-btn {
-            position: absolute; top: 10px; right: 20px;
-            font-size: 30px; font-weight: 700; cursor: pointer; color: #9E9E9E;
-            transition: color 0.2s;
-        }
-        .close-btn:hover { color: #555; }
-        .modal-content h2 { 
-            margin-top: 0; color: #333; text-align: center; font-size: 22px; 
-            font-weight: 700; letter-spacing: 2px; padding-bottom: 20px;
-            border-bottom: 1px solid #E0E0E0; margin-bottom: 20px;
-        }
-        #shell-grid {
-            flex: 1;
-            overflow-y: auto;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 20px;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 8px;
-        }
-        #shell-grid::-webkit-scrollbar { width: 8px; }
-        #shell-grid::-webkit-scrollbar-track { background: transparent; }
-        #shell-grid::-webkit-scrollbar-thumb { background: #CFD8DC; border-radius: 4px; }
 
-        .shell-card {
+        /* リザルト画面 */
+        #result-screen { text-align: center; padding: 20px; box-sizing: border-box;}
+        #result-title { font-size: 28px; color: var(--accent); margin-bottom: 10px; }
+        .result-image { width: 150px; height: 150px; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); margin: 10px auto;}
+        .waka-box {
             background: #fff;
-            border-radius: 8px; 
-            padding: 16px;
-            display: flex; flex-direction: column; 
-            align-items: center;
-            border: 1px solid #ddd;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-            transition: transform 0.3s ease;
+            border: 2px solid var(--secondary);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 15px 0;
+            max-width: 400px;
         }
-        .shell-card:hover { transform: translateY(-5px); }
-        .shell-card.locked { opacity: 0.5; box-shadow: none; background: #eee; }
-        
-        .shell-image {
-            width: 100%; height: 120px; 
-            background: #FAFAFA; border: 1px solid #EEEEEE; border-radius: 4px;
-            margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
-            overflow: hidden;
-            position: relative;
+        .waka-poem { font-family: 'Noto Serif JP', serif; font-size: 18px; line-height: 2; margin-bottom: 15px; font-weight: bold;}
+        .waka-info { font-size: 12px; color: #666; text-align: right; }
+        .bonus-text { color: #d32f2f; font-weight: bold; font-size: 16px; margin: 10px 0; height: 24px; animation: bounceIn 0.5s;}
+
+        /* クイズ画面 */
+        #quiz-screen h2 { color: var(--primary); margin-bottom: 10px; font-size: 24px;}
+        #quiz-question { font-size: 20px; font-weight: bold; margin-bottom: 20px; }
+        .quiz-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            max-width: 400px;
         }
-        .shell-image img { max-width: 80%; max-height: 80%; object-fit: contain; }
-        
-        .shell-card .no { 
-            font-size: 11px; color: #999; font-weight: 700; 
-            width: 100%; text-align: left; margin-bottom: 8px;
+        .quiz-option {
+            width: 140px; height: 140px;
+            background-size: cover; background-position: center;
+            border-radius: 12px;
+            border: 3px solid transparent;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: transform 0.1s, border 0.2s;
         }
-        .shell-card .names { font-size: 15px; font-weight: 700; color: #333; margin: 0; text-align: center; }
-        .shell-card .names small { font-size: 11px; color: #666; display: block; margin-top: 4px; }
-        
-        .shell-card .rarity { font-size: 11px; color: #f57f17; margin: 8px 0; }
-        
-        .shell-card .poem { 
-            font-size: 11px; color: #444; background: #e3f2fd;
-            text-align: center; line-height: 1.6; margin-top: auto;
-            padding: 8px; border-radius: 4px; width: 100%; box-sizing: border-box;
-        }
-        .shell-card .author { 
-            width: 100%; text-align: right; font-size: 10px; color: #666; 
-            margin-top: 8px;
+        .quiz-option:hover { transform: scale(1.05); }
+        .quiz-option.correct { border-color: #4caf50; }
+        .quiz-option.wrong { border-color: #f44336; opacity: 0.6; }
+        #quiz-result-msg { font-size: 22px; font-weight: bold; margin-top: 20px; height: 30px; }
+
+        /* パーティクルエフェクト用 */
+        .particle {
+            position: absolute;
+            pointer-events: none;
+            border-radius: 50%;
+            z-index: 50;
         }
 
-        /* スマホ用レスポンシブ対応 */
-        @media (max-width: 600px) {
-            #ui h1 { font-size: 18px; }
-            .status { font-size: 14px; }
-            #scoreBox { font-size: 16px; padding: 8px 16px; top: 15px; right: 15px; }
-            #ui { top: 15px; left: 15px; }
-            
-            #trash-bins { bottom: 15px; gap: 8px; }
-            .bin {
-                width: 70px; height: 75px;
-                font-size: 10px;
-                border-width: 2px;
-            }
-            .bin:not(#bin-large):not(#bin-shell)::before {
-                width: 16px; height: 8px; top: -10px; border-width: 2px;
-            }
-            #bin-large, #bin-shell { height: 65px; border-radius: 8px; }
-            #bin-shell span { font-size: 8px; }
-
-            #dpad {
-                bottom: 110px; right: 15px;
-                grid-template-columns: 45px 45px 45px;
-                grid-template-rows: 45px 45px 45px;
-            }
-            #dpad button { font-size: 16px; }
-            
-            .overlay-screen h1 { font-size: 28px; }
-            .tutorial-box { margin: 15px; padding: 15px 20px; font-size: 12px; }
-            
-            #shell-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 15px; padding: 10px; }
-            .shell-card { padding: 12px; }
-            .shell-image { height: 90px; }
-            .modal-content h2 { font-size: 18px; }
+        @keyframes bounceIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            70% { transform: scale(1.2); }
+            100% { transform: scale(1); opacity: 1; }
         }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <h1>増穂浦でBeach Clean</h1>
-        <div class="status">STAGE: <span id="stageVal">1</span></div>
-        <div class="status">REMAINING: <span id="remainVal">0</span></div>
-    </div>
 
-    <div id="scoreBox"><span id="scoreVal">0</span> pt</div>
-
-    <div id="trash-bins">
-        <div id="bin-burnable" class="bin">燃えるゴミ</div>
-        <div id="bin-unburnable" class="bin">燃えないゴミ</div>
-        <div id="bin-large" class="bin">大型ゴミ</div>
-        <div id="bin-shell" class="bin">コレクション<span>(View Gallery)</span></div>
-    </div>
-
-    <div id="dpad">
-        <button id="btn-up">▲</button>
-        <button id="btn-left">◀</button>
-        <button id="btn-down">▼</button>
-        <button id="btn-right">▶</button>
-    </div>
-
-    <!-- スタート画面 (チュートリアル＆ローディング) -->
-    <div id="start-screen" class="overlay-screen">
-        <h1>増穂浦でBeach Clean</h1>
-        <div class="tutorial-box">
-            <h3 style="margin-top:0; color:#333;">遊び方</h3>
-            <ul>
-                <li>ビーチに落ちているゴミを下の袋・箱へドラッグして分別してください。</li>
-                <li>貝殻を見つけたら右下の「コレクション」箱に入れてください(30pt獲得)。</li>
-                <li>画面右下のボタン、またはキーボードの WASD キーで移動できます。</li>
-                <li>全種類のゴミを片付けると次のステージへ進みます。</li>
-                <li>幻の<strong>歌仙貝(全36種)</strong>をコンプリートしよう！</li>
-            </ul>
+    <!-- ゲームメイン -->
+    <div id="game-container">
+        <div class="header">
+            <div class="stage-info">STAGE <span id="stage-num">1</span>/36</div>
+            <div class="life-info">LIFE <span>♥</span> <span id="life-num">720</span></div>
         </div>
-        <button id="start-btn" class="btn-action" disabled>Loading Assets... 0%</button>
-    </div>
+        <div class="life-bar-container">
+            <div id="life-bar"></div>
+        </div>
 
-    <!-- ステージクリア画面 (リザルト＆裏読み込み) -->
-    <div id="clear-screen" class="overlay-screen" style="display: none;">
-        <h2 id="clear-stage-title" style="font-size: 32px; color: #4FC3F7; margin-bottom: 5px;">STAGE CLEAR!</h2>
-        <p id="clear-desc" style="color: #666; margin-bottom: 20px;">このステージで見つけた貝殻</p>
-        <div id="clear-shell-list"></div>
-        <button id="next-stage-btn" class="btn-action" style="display: none;">NEXT STAGE</button>
-    </div>
-
-    <!-- ギャラリー風コレクションモーダル -->
-    <div id="collection-modal">
-        <div class="modal-content">
-            <span class="close-btn" id="close-modal">&times;</span>
-            <h2>KASENGAI GALLERY (<span id="collection-count">0</span> / 36)</h2>
-            <div id="shell-grid"></div>
+        <div id="puzzle-board">
+            <!-- ピースがJSで追加される -->
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- スタート画面 -->
+    <div id="start-screen" class="screen">
+        <h1>36歌仙貝</h1>
+        <div class="subtitle">スライドパズル</div>
+        <div class="instruction">
+            ・画像をスライドさせてパズルを完成させましょう。<br>
+            ・<b>左下のマス</b>が欠けた状態が完成形です。<br>
+            ・ライフは全部で720。1秒につき1減ります。<br>
+            ・1ステージ10秒以内にクリアでライフ+5ボーナス！<br>
+            ・5ステージごとの「貝当てクイズ」正解でライフ+10！<br>
+            ・ライフが0になる前に全36ステージクリアを目指せ！
+        </div>
+        <button id="btn-start" class="btn">ゲームスタート</button>
+    </div>
+
+    <!-- リザルト（和歌表示）画面 -->
+    <div id="result-screen" class="screen hidden">
+        <div id="result-title">STAGE CLEAR!</div>
+        <div id="result-time" style="font-weight: bold; color: #555;">Clear Time: 12秒</div>
+        <div id="bonus-msg" class="bonus-text"></div>
+        
+        <div id="result-img" class="result-image" style="background-image: url(''); background-size: cover;"></div>
+        
+        <div class="waka-box">
+            <div id="result-name" style="font-weight: bold; color: var(--primary); margin-bottom: 5px;">すだれ貝 (サツマアカガイ)</div>
+            <div id="result-poem" class="waka-poem">なみかかる　吹上の濱の　すだれ貝<br>風もぞおろす　いそぎひろはん</div>
+            <div class="waka-info">出典: <span id="result-source">山下集</span> / 詠み人: <span id="result-author">西行法師</span></div>
+        </div>
+
+        <button id="btn-next" class="btn">Next Stage</button>
+    </div>
+
+    <!-- クイズ画面 -->
+    <div id="quiz-screen" class="screen hidden">
+        <h2>ボーナスクイズ！</h2>
+        <div id="quiz-question">「すだれ貝」はどれ？</div>
+        <div class="quiz-options" id="quiz-options">
+            <!-- 選択肢が挿入される -->
+        </div>
+        <div id="quiz-result-msg"></div>
+        <button id="btn-quiz-next" class="btn hidden" style="margin-top: 10px;">次へ進む</button>
+    </div>
+
+    <!-- 最終クリア画面 -->
+    <div id="all-clear-screen" class="screen hidden">
+        <h1 style="color: var(--accent); font-size: 40px; margin-bottom: 10px;">ALL CLEAR!!</h1>
+        <p style="font-size: 18px; margin-bottom: 30px;">36種の歌仙貝をすべて集めました！</p>
+        <div style="font-size: 24px; font-weight: bold;">最終スコア (残りライフ)</div>
+        <div id="final-score" style="font-size: 60px; color: #d32f2f; font-weight: bold; margin: 10px 0 30px;">720</div>
+        <button class="btn" onclick="location.reload()">もう一度遊ぶ</button>
+    </div>
+
+    <!-- ゲームオーバー画面 -->
+    <div id="game-over-screen" class="screen hidden">
+        <h1 style="color: #666; font-size: 40px;">GAME OVER</h1>
+        <p>ライフが0になってしまいました...</p>
+        <div style="font-size: 20px; margin-top: 20px;">到達ステージ: <span id="go-stage" style="font-weight:bold; color:var(--primary);"></span></div>
+        <button class="btn" onclick="location.reload()" style="margin-top: 40px; background: #666;">最初からやり直す</button>
+    </div>
 
     <script>
         // ==========================================
-        // 0. データ定義 (ゴミ・貝殻)
+        // データ定義
         // ==========================================
-        
-        const trashData = [
-            { name: 'ペットボトル', type: 'burnable', rarity: 1 },
-            { name: 'ビン', type: 'unburnable', rarity: 3 },
-            { name: '缶', type: 'unburnable', rarity: 5 },
-            { name: '発泡スチロール', type: 'burnable', rarity: 10 },
-            { name: 'ブイ', type: 'large', rarity: 7 },
-            { name: '靴', type: 'burnable', rarity: 20 },
-            { name: '綱', type: 'large', rarity: 7 },
-            { name: '流木大', type: 'large', rarity: 10 },
-            { name: '流木小', type: 'burnable', rarity: 3 }
-        ];
-
-        function getRandomTrash() {
-            const weights = trashData.map(t => 100 / t.rarity);
-            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-            let random = Math.random() * totalWeight;
-            for (let i = 0; i < trashData.length; i++) {
-                if (random < weights[i]) return trashData[i];
-                random -= weights[i];
-            }
-            return trashData[0];
-        }
-
         const shellData = [
-            { no: 1, kasenName: 'すだれ貝', name: 'サツマアカガイ', rarity: 3, source: '山下集', author: '西行法師', poem: 'なみかかる　吹上の濱の　すだれ貝　風もぞおろす　いそぎひろはん' },
-            { no: 2, kasenName: '忘れ貝', name: 'マツヤマワスレ', rarity: 1, source: '夫木抄', author: '順徳院', poem: 'みつのはま　いそこす波の　わすれ貝　わすれずみする　松かねの声' },
-            { no: 3, kasenName: '梅の花貝', name: 'ヤヘウメ', rarity: 3, source: '新後拾遺集', author: '俊頼', poem: '春風に　波やおりけん　みちのくの　まがきがしまの　梅のはな貝' },
-            { no: 4, kasenName: '花貝', name: 'チヨノハナガイ', rarity: 1, source: '夫木抄', author: '読人不知', poem: 'えだながら　うづまく波の　おらねばや　ちりぢりよする　ちよのはながい' },
-            { no: 5, kasenName: 'さくら貝', name: 'サクラガイ', rarity: 1, source: '拾遺愚草', author: '定家', poem: '伊勢のうみ　なみの玉よる　さくらがい　かひあるうらの　はなの色かな' },
-            { no: 6, kasenName: 'ますほ貝', name: 'ベニガイ', rarity: 1, source: '山家集', author: '西行法師', poem: 'しほそむる　ますうの小貝　拾ふとて　いろのはまとは　いふにやあるらん' },
-            { no: 7, kasenName: '紫貝', name: 'フジナミガイ', rarity: 2, source: '夫木抄', author: '読人不知', poem: 'むらさきの　貝よるうらの　ふじがたは　なみのかへるぞ　はなと見へける' },
-            { no: 8, kasenName: '白貝', name: 'カガミガイ', rarity: 1, source: '名寄', author: '読人不知', poem: 'はるばると　しららのはまの　しら貝は　なつさえふれる　雪かとぞ見る' },
-            { no: 9, kasenName: 'なでしこ貝', name: 'チリボタン', rarity: 1, source: '夫木抄', author: '西行法師', poem: 'ちりほしむ　なでしこ貝に　しくいろは　やまとからにも　あらじとぞ思ふ' },
-            { no: 10, kasenName: '波間柏貝', name: 'ナミハガシハ', rarity: 1, source: '', author: '定塚', poem: '難波女が　なみまがしわを　とるほどに　日もくれ袖に　月ぞやどれる' },
-            { no: 11, kasenName: 'きぬた貝', name: 'キヌタアゲマキ', rarity: 2, source: '', author: '作者不詳', poem: '契りおきし　衣のうらの　あきふけて　うてぬきぬたの　かひもなかりき' },
-            { no: 12, kasenName: '枕貝', name: 'オキナガイ', rarity: 3, source: '和訓栞', author: '大江広重', poem: 'ふねとむる　磯のなみぢの　まくらがい　かいある夢に　あわざらめやは' },
-            { no: 13, kasenName: 'にしき貝', name: 'ナデシコガイ', rarity: 1, source: '', author: '三条院', poem: 'こきまぜに　色をつくして　よる貝は　にしきの浦と　みゆるなりけり' },
-            { no: 14, kasenName: 'いろ貝', name: 'ヒバリガイ', rarity: 1, source: '末木抄', author: '読人不知', poem: 'いろいろの　かいありてこそ　ひろはめれ　ちくさの浜の　あまがまにまに' },
-            { no: 15, kasenName: 'ほら貝', name: 'オウウヤウラク等', rarity: 3, source: '夫木抄', author: '寂蓮法', poem: '山ぶしの　ほらふく峰の　夕ぐれに　そこともしらめ　すずの上風' },
-            { no: 16, kasenName: '都貝', name: 'マツムシ', rarity: 2, source: '夫木抄', author: '伎女河菰', poem: 'ともすれば　こひしきかたの　名におへる　みやこの貝をぞ　まづひろいぬる' },
-            { no: 17, kasenName: 'うらうづ貝', name: 'ウラウツガイ', rarity: 2, source: '夫木抄', author: '敦忠', poem: '田鶴さわぐ　あしのもとはを　かきわけて　うらうづ貝を　ひろいつるかな' },
-            { no: 18, kasenName: 'さたべ貝', name: 'サザエ', rarity: 2, source: '山家集', author: '西行法師', poem: 'さたべすむ　せとのいわつぼ　求出て　いそしきあまの　けしきなるかな' },
-            { no: 19, kasenName: '千鳥貝', name: 'スズキガイ', rarity: 3, source: '新古今集', author: '後白河院', poem: 'はまちどり　ふみおくあとの　つもりなば　かひあるうらに　あわざらめやは' },
-            { no: 20, kasenName: '雀貝', name: 'キクスズメ', rarity: 1, source: '夫木抄', author: '大江広重', poem: '波よする　竹のとまりの　すずめ貝　うれしき世にも　あひにけるかな' },
-            { no: 21, kasenName: 'いたや貝', name: 'イタヤガイ', rarity: 1, source: '新撰六帖', author: '信実', poem: 'あやしくも　うらめづらしき　いたや貝　とまふくあまの　ならひならずや' },
-            { no: 22, kasenName: 'あこや貝', name: 'カキ', rarity: 3, source: '山家集', author: '西行法師', poem: 'あやことる　ゐ貝のからを　つみおきて　たからのあとを　見するなりけり' },
-            { no: 23, kasenName: 'あわび貝', name: 'アワビノトコブシ', rarity: 2, source: '浦錦', author: '千首牡丹花', poem: 'なべて世の　こひ路にいかで　うつしけん　あわびのかいの　おのがおもひを' },
-            { no: 24, kasenName: 'かたし貝', name: 'ユキノカサ', rarity: 2, source: '後花園院宸百首', author: '', poem: '我袖は　いつかひかたの　かたし貝　あふてふことも　なみにしほれて' },
-            { no: 25, kasenName: 'うつせ貝', name: 'キセワタ', rarity: 3, source: '続後撰集', author: '好忠', poem: 'なみのうつ　みしまのうらの　うつせがい　むなしきからに　われやなるなん' },
-            { no: 26, kasenName: 'みなし貝', name: 'アカテツボ', rarity: 2, source: '末木抄', author: '光台院入道二品親王', poem: 'かみ島の　いそまのうらに　よる貝の　身はいたづらに　なりはてぬはた' },
-            { no: 27, kasenName: 'あさり貝', name: 'ヒメアサリ', rarity: 1, source: '新撰六帖', author: '光俊', poem: 'いせのうらの　しほひにあさり　もとめたる　かいをそたもつ　身をばすてつつ' },
-            { no: 28, kasenName: 'しお貝', name: 'フジノハナガイ', rarity: 1, source: '', author: '師兼', poem: 'いせのうみの　うらのしほがい　ひらひてふ　あまちに袖の　ぬれてかわかぬ' },
-            { no: 29, kasenName: 'ものあい貝', name: 'モノアラガイ', rarity: 3, source: '続松葉集', author: '宗恵', poem: 'たのもしな　ものあら貝の　つきぬべき　法の蓮の　うらにすむ身は' },
-            { no: 30, kasenName: 'かたつ貝', name: 'ネコガイ', rarity: 3, source: '海道記', author: '源光行', poem: 'たのみつる　人はなぎさの　かたつがい　あわぬにつけて　身をぞうらむる' },
-            { no: 31, kasenName: 'あし貝', name: 'バカガイ', rarity: 1, source: '浦錦', author: '津守国冬', poem: '海ばらや　なみにゆらゆゆ　あし貝の　かひある国と　なれるかしこさ' },
-            { no: 32, kasenName: 'みぞ貝', name: 'ミゾガイ', rarity: 1, source: '夫木抄', author: '俊頼', poem: '江の浜に　みぞ貝ひろう　うない子が　たわぶれにたに　とふ人もなし' },
-            { no: 33, kasenName: '蛤貝', name: 'ハマグリ', rarity: 1, source: '山家集', author: '西行法師', poem: '今ぞしる　ふたみのうらの　はまぐりを　貝あわせとぞ　おもふなりけり' },
-            { no: 34, kasenName: 'しじみ貝', name: 'シジミ', rarity: 1, source: '', author: '為尹卿', poem: 'しじみとる　かたたのうらの　あま人よ　こまかにいはば　かいぞ有べき' },
-            { no: 35, kasenName: '小貝', name: 'ツノガイ等', rarity: 2, source: '夫木抄', author: '源師光', poem: 'いせのうみ　きよきなぎさに　駒とめて　都のつとに　小がいひろはん' },
-            { no: 36, kasenName: '千種貝', name: 'チグサガイ', rarity: 2, source: '夫木抄', author: '読人不知', poem: '君が代の　ためしと見ゆる　長はまに　千種のかいの　かずもつきせじ' }
+            { no: 1, kasenName: 'すだれ貝', name: 'サツマアカガイ', source: '山下集', author: '西行法師', poem: 'なみかかる　吹上の濱の　すだれ貝<br>風もぞおろす　いそぎひろはん' },
+            { no: 2, kasenName: '忘れ貝', name: 'マツヤマワスレ', source: '夫木抄', author: '順徳院', poem: 'みつのはま　いそこす波の　わすれ貝<br>わすれずみする　松かねの声' },
+            { no: 3, kasenName: '梅の花貝', name: 'ヤヘウメ', source: '新後拾遺集', author: '俊頼', poem: '春風に　波やおりけん　みちのくの<br>まがきがしまの　梅のはな貝' },
+            { no: 4, kasenName: '花貝', name: 'チヨノハナガイ', source: '夫木抄', author: '読人不知', poem: 'えだながら　うづまく波の　おらねばや<br>ちりぢりよする　ちよのはながい' },
+            { no: 5, kasenName: 'さくら貝', name: 'サクラガイ', source: '拾遺愚草', author: '定家', poem: '伊勢のうみ　なみの玉よる　さくらがい<br>かひあるうらの　はなの色かな' },
+            { no: 6, kasenName: 'ますほ貝', name: 'ベニガイ', source: '山家集', author: '西行法師', poem: 'しほそむる　ますうの小貝　拾ふとて<br>いろのはまとは　いふにやあるらん' },
+            { no: 7, kasenName: '紫貝', name: 'フジナミガイ', source: '夫木抄', author: '読人不知', poem: 'むらさきの　貝よるうらの　ふじがたは<br>なみのかへるぞ　はなと見へける' },
+            { no: 8, kasenName: '白貝', name: 'カガミガイ', source: '名寄', author: '読人不知', poem: 'はるばると　しららのはまの　しら貝は<br>なつさえふれる　雪かとぞ見る' },
+            { no: 9, kasenName: 'なでしこ貝', name: 'チリボタン', source: '夫木抄', author: '西行法師', poem: 'ちりほしむ　なでしこ貝に　しくいろは<br>やまとからにも　あらじとぞ思ふ' },
+            { no: 10, kasenName: '波間柏貝', name: 'ナミハガシハ', source: '', author: '定塚', poem: '難波女が　なみまがしわを　とるほどに<br>日もくれ袖に　月ぞやどれる' },
+            { no: 11, kasenName: 'きぬた貝', name: 'キヌタアゲマキ', source: '', author: '作者不詳', poem: '契りおきし　衣のうらの　あきふけて<br>うてぬきぬたの　かひもなかりき' },
+            { no: 12, kasenName: '枕貝', name: 'オキナガイ', source: '和訓栞', author: '大江広重', poem: 'ふねとむる　磯のなみぢの　まくらがい<br>かいある夢に　あわざらめやは' },
+            { no: 13, kasenName: 'にしき貝', name: 'ナデシコガイ', source: '', author: '三条院', poem: 'こきまぜに　色をつくして　よる貝は<br>にしきの浦と　みゆるなりけり' },
+            { no: 14, kasenName: 'いろ貝', name: 'ヒバリガイ', source: '末木抄', author: '読人不知', poem: 'いろいろの　かいありてこそ　ひろはめれ<br>ちくさの浜の　あまがまにまに' },
+            { no: 15, kasenName: 'ほら貝', name: 'オウウヤウラク等', source: '夫木抄', author: '寂蓮法', poem: '山ぶしの　ほらふく峰の　夕ぐれに<br>そこともしらめ　すずの上風' },
+            { no: 16, kasenName: '都貝', name: 'マツムシ', source: '夫木抄', author: '伎女河菰', poem: 'ともすれば　こひしきかたの　名におへる<br>みやこの貝をぞ　まづひろいぬる' },
+            { no: 17, kasenName: 'うらうづ貝', name: 'ウラウツガイ', source: '夫木抄', author: '敦忠', poem: '田鶴さわぐ　あしのもとはを　かきわけて<br>うらうづ貝を　ひろいつるかな' },
+            { no: 18, kasenName: 'さたべ貝', name: 'サザエ', source: '山家集', author: '西行法師', poem: 'さたべすむ　せとのいわつぼ　求出て<br>いそしきあまの　けしきなるかな' },
+            { no: 19, kasenName: '千鳥貝', name: 'スズキガイ', source: '新古今集', author: '後白河院', poem: 'はまちどり　ふみおくあとの　つもりなば<br>かひあるうらに　あわざらめやは' },
+            { no: 20, kasenName: '雀貝', name: 'キクスズメ', source: '夫木抄', author: '大江広重', poem: '波よする　竹のとまりの　すずめ貝<br>うれしき世にも　あひにけるかな' },
+            { no: 21, kasenName: 'いたや貝', name: 'イタヤガイ', source: '新撰六帖', author: '信実', poem: 'あやしくも　うらめづらしき　いたや貝<br>とまふくあまの　ならひならずや' },
+            { no: 22, kasenName: 'あこや貝', name: 'カキ', source: '山家集', author: '西行法師', poem: 'あやことる　ゐ貝のからを　つみおきて<br>たからのあとを　見するなりけり' },
+            { no: 23, kasenName: 'あわび貝', name: 'アワビノトコブシ', source: '浦錦', author: '千首牡丹花', poem: 'なべて世の　こひ路にいかで　うつしけん<br>あわびのかいの　おのがおもひを' },
+            { no: 24, kasenName: 'かたし貝', name: 'ユキノカサ', source: '後花園院宸百首', author: '不明', poem: '我袖は　いつかひかたの　かたし貝<br>あふてふことも　なみにしほれて' },
+            { no: 25, kasenName: 'うつせ貝', name: 'キセワタ', source: '続後撰集', author: '好忠', poem: 'なみのうつ　みしまのうらの　うつせがい<br>むなしきからに　われやなるなん' },
+            { no: 26, kasenName: 'みなし貝', name: 'アカテツボ', source: '末木抄', author: '光台院入道', poem: 'かみ島の　いそまのうらに　よる貝の<br>身はいたづらに　なりはてぬはた' },
+            { no: 27, kasenName: 'あさり貝', name: 'ヒメアサリ', source: '新撰六帖', author: '光俊', poem: 'いせのうらの　しほひにあさり　もとめたる<br>かいをそたもつ　身をばすてつつ' },
+            { no: 28, kasenName: 'しお貝', name: 'フジノハナガイ', source: '', author: '師兼', poem: 'いせのうみの　うらのしほがい　ひらひてふ<br>あまちに袖の　ぬれてかわかぬ' },
+            { no: 29, kasenName: 'ものあい貝', name: 'モノアラガイ', source: '続松葉集', author: '宗恵', poem: 'たのもしな　ものあら貝の　つきぬべき<br>法の蓮の　うらにすむ身は' },
+            { no: 30, kasenName: 'かたつ貝', name: 'ネコガイ', source: '海道記', author: '源光行', poem: 'たのみつる　人はなぎさの　かたつがい<br>あわぬにつけて　身をぞうらむる' },
+            { no: 31, kasenName: 'あし貝', name: 'バカガイ', source: '浦錦', author: '津守国冬', poem: '海ばらや　なみにゆらゆゆ　あし貝の<br>かひある国と　なれるかしこさ' },
+            { no: 32, kasenName: 'みぞ貝', name: 'ミゾガイ', source: '夫木抄', author: '俊頼', poem: '江の浜に　みぞ貝ひろう　うない子が<br>たわぶれにたに　とふ人もなし' },
+            { no: 33, kasenName: '蛤貝', name: 'ハマグリ', source: '山家集', author: '西行法師', poem: '今ぞしる　ふたみのうらの　はまぐりを<br>貝あわせとぞ　おもふなりけり' },
+            { no: 34, kasenName: 'しじみ貝', name: 'シジミ', source: '', author: '為尹卿', poem: 'しじみとる　かたたのうらの　あま人よ<br>こまかにいはば　かいぞ有べき' },
+            { no: 35, kasenName: '小貝', name: 'ツノガイ等', source: '夫木抄', author: '源師光', poem: 'いせのうみ　きよきなぎさに　駒とめて<br>都のつとに　小がいひろはん' },
+            { no: 36, kasenName: '千種貝', name: 'チグサガイ', source: '夫木抄', author: '読人不知', poem: '君が代の　ためしと見ゆる　長はまに<br>千種のかいの　かずもつきせじ' }
         ];
 
-        const collectedShells = new Set();
-        let gameCleared = false;
-        let currentStageShells = []; // そのステージで取得した貝殻を保持
-
-        function getRandomShell() {
-            const weights = shellData.map(s => {
-                if (s.rarity === 1) return 100;
-                else if (s.rarity === 2) return 15;
-                else return 2; 
-            });
-            const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-            let random = Math.random() * totalWeight;
-            for (let i = 0; i < shellData.length; i++) {
-                if (random < weights[i]) return shellData[i];
-                random -= weights[i];
-            }
-            return shellData[0];
-        }
-
         // ==========================================
-        // 1. 画像テクスチャ生成とプリロード処理
+        // ゲーム状態と変数
         // ==========================================
-        const textureLoader = new THREE.TextureLoader();
-        const textureCache = {};
-
-        // 起動時に全画像をバックグラウンドでロードする関数
-        function preloadAssets() {
-            const startBtn = document.getElementById('start-btn');
-            const allUrls = [
-                ...trashData.map(t => `./images/${t.name}.png`),
-                ...shellData.map(s => `./images/${s.no}.png`)
-            ];
-            
-            let loadedCount = 0;
-
-            function checkProgress() {
-                const progress = Math.floor((loadedCount / allUrls.length) * 100);
-                startBtn.innerText = `Loading Assets... ${progress}%`;
-                if (loadedCount === allUrls.length) {
-                    startBtn.innerText = 'START CLEANING';
-                    startBtn.disabled = false;
-                }
-            }
-
-            allUrls.forEach(url => {
-                textureLoader.load(
-                    url,
-                    (tex) => { 
-                        textureCache[url] = tex; 
-                        loadedCount++; checkProgress(); 
-                    },
-                    undefined,
-                    (err) => { 
-                        loadedCount++; checkProgress(); // エラー時も進捗は進める
-                    }
-                );
-            });
-        }
-
-        function createSpriteWithFallback(url, fallbackText, size) {
-            const material = new THREE.SpriteMaterial({ transparent: true });
-            
-            const canvas = document.createElement('canvas');
-            canvas.width = 128; canvas.height = 128;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(0, 0, 128, 128);
-            ctx.strokeStyle = '#ccc';
-            ctx.lineWidth = 4;
-            ctx.strokeRect(0, 0, 128, 128);
-
-            ctx.font = '700 22px "Noto Sans JP", sans-serif'; 
-            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillStyle = '#333';
-            
-            if (fallbackText.length > 4) {
-                ctx.fillText(fallbackText.substring(0,4), 64, 50);
-                ctx.fillText(fallbackText.substring(4), 64, 80);
-            } else {
-                ctx.fillText(fallbackText, 64, 64);
-            }
-            const fallbackTexture = new THREE.CanvasTexture(canvas);
-
-            if (textureCache[url]) {
-                material.map = textureCache[url];
-            } else {
-                material.map = fallbackTexture;
-                // プリロードで漏れたりエラーだった場合の後追いロード
-                textureLoader.load(url, (tex) => {
-                    textureCache[url] = tex;
-                    material.map = tex;
-                    material.needsUpdate = true;
-                });
-            }
-            
-            const sprite = new THREE.Sprite(material);
-            sprite.scale.set(size, size, size);
-            return sprite;
-        }
-
-        // ==========================================
-        // 2. UIイベント (スタート/次ステージ/コレクション確認)
-        // ==========================================
+        const MAX_STAGE = 36;
+        const INITIAL_LIFE = 720;
+        const EMPTY_INDEX = 6; // 左下(x:0, y:2) を空きマスとする
         
-        document.getElementById('start-btn').addEventListener('click', () => {
-            document.getElementById('start-screen').style.display = 'none';
-            isTransitioning = false; // 操作を許可
-        });
-
-        document.getElementById('next-stage-btn').addEventListener('click', () => {
-            document.getElementById('clear-screen').style.display = 'none';
-            currentStageShells = []; // リセット
-            isTransitioning = false; // 次のステージの操作を許可
-        });
-
-        function updateCollectionUI() {
-            const grid = document.getElementById('shell-grid');
-            grid.innerHTML = '';
-            document.getElementById('collection-count').innerText = collectedShells.size;
-
-            shellData.forEach(shell => {
-                const isCollected = collectedShells.has(shell.no);
-                const div = document.createElement('div');
-                div.className = `shell-card ${isCollected ? '' : 'locked'}`;
-                
-                let stars = '';
-                for(let i=0; i<shell.rarity; i++) stars += '★';
-                
-                const imgSrc = `./images/${shell.no}.png`;
-
-                if (isCollected) {
-                    div.innerHTML = `
-                        <div class="no">No.${String(shell.no).padStart(2, '0')}</div>
-                        <div class="shell-image">
-                            <img src="${imgSrc}" alt="${shell.kasenName}" onerror="this.style.display='none'; this.parentNode.innerHTML='<span style=\\'color:#B0BEC5; font-size:12px;\\'>No Image</span>';">
-                        </div>
-                        <h3 class="names">${shell.kasenName}<small>${shell.name}</small></h3>
-                        <div class="rarity">${stars}</div>
-                        <div class="poem">「${shell.poem}」</div>
-                        <div class="author">${shell.source || '不明'} / ${shell.author || '不明'}</div>
-                    `;
-                } else {
-                    div.innerHTML = `
-                        <div class="no">No.${String(shell.no).padStart(2, '0')}</div>
-                        <div class="shell-image" style="background:transparent; border:none;">
-                            <span style="font-size:24px; color:#ccc; font-weight:700;">?</span>
-                        </div>
-                    `;
-                }
-                grid.appendChild(div);
-            });
-        }
-
-        document.getElementById('bin-shell').addEventListener('click', () => {
-            updateCollectionUI();
-            document.getElementById('collection-modal').style.display = 'flex';
-        });
-
-        document.getElementById('close-modal').addEventListener('click', () => {
-            document.getElementById('collection-modal').style.display = 'none';
-        });
-
-        // ==========================================
-        // 3. 基本設定 (シーン、カメラ、レンダラー)
-        // ==========================================
-        const scene = new THREE.Scene();
-
-        function createSkyTexture() {
-            const canvas = document.createElement('canvas');
-            canvas.width = 2; canvas.height = 512;
-            const ctx = canvas.getContext('2d');
-            const gradient = ctx.createLinearGradient(0, 0, 0, 512);
-            gradient.addColorStop(0, '#4a90e2');
-            gradient.addColorStop(1, '#ffffff');
-            ctx.fillStyle = gradient;
-            ctx.fillRect(0, 0, 2, 512);
-            return new THREE.CanvasTexture(canvas);
-        }
-        scene.background = createSkyTexture();
-        scene.fog = new THREE.FogExp2(0xffffff, 0.015); 
-
-        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        let currentStage = 1;
+        let totalLife = INITIAL_LIFE;
+        let timerInterval = null;
+        let timeInCurrentStage = 0;
+        let isPlaying = false;
         
-        function resetCamera() {
-            camera.position.set(40, 4, 45);
-            camera.lookAt(-30, 0, 0);
-        }
+        // パズルの盤面 (0〜8。EMPTY_INDEXの場所がnull)
+        let board = [];
+        let currentImageUrl = '';
+        let missingPieceElement = null; // クリア時にはめるためのピース
 
-        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        document.body.appendChild(renderer.domElement);
-
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
-        directionalLight.position.set(10, 20, 10);
-        scene.add(directionalLight);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-
-        // ==========================================
-        // 4. 地形（砂浜と海）の作成
-        // ==========================================
-        function createNoiseTexture(baseColor) {
-            const canvas = document.createElement('canvas');
-            canvas.width = 256; canvas.height = 256;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = baseColor;
-            ctx.fillRect(0, 0, 256, 256);
-            const imgData = ctx.getImageData(0, 0, 256, 256);
-            for (let i = 0; i < imgData.data.length; i += 4) {
-                const noise = (Math.random() - 0.5) * 15;
-                imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
-                imgData.data[i+1] = Math.min(255, Math.max(0, imgData.data[i+1] + noise));
-                imgData.data[i+2] = Math.min(255, Math.max(0, imgData.data[i+2] + noise));
-            }
-            ctx.putImageData(imgData, 0, 0);
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(10, 10);
-            return texture;
-        }
-
-        const planeSize = 100;
-        const sandGeo = new THREE.PlaneGeometry(planeSize, planeSize, 32, 32);
-        const sandMat = new THREE.MeshStandardMaterial({
-            map: createNoiseTexture('#dcb98a'),
-            roughness: 1.0, metalness: 0.0
-        });
-        const sand = new THREE.Mesh(sandGeo, sandMat);
-        sand.rotation.x = -Math.PI / 2;
-        scene.add(sand);
-
-        const noiseGLSL = `
-            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec2 mod289(vec2 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
-            vec3 permute(vec3 x) { return mod289(((x*34.0)+1.0)*x); }
-            float snoise(vec2 v) {
-                const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-                vec2 i  = floor(v + dot(v, C.yy) ); vec2 x0 = v -   i + dot(i, C.xx);
-                vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-                vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1; i = mod289(i);
-                vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
-                vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-                m = m*m; m = m*m;
-                vec3 x = 2.0 * fract(p * C.www) - 1.0; vec3 h = abs(x) - 0.5; vec3 ox = floor(x + 0.5);
-                vec3 a0 = x - ox; m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
-                vec3 g; g.x  = a0.x  * x0.x  + h.x  * x0.y; g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-                return 130.0 * dot(m, g);
-            }
-        `;
-        const seaMat = new THREE.ShaderMaterial({
-            uniforms: { uTime: { value: 0 } },
-            vertexShader: `
-                varying vec2 vUv; 
-                uniform float uTime; 
-                ${noiseGLSL}
-                void main() {
-                    vUv = uv; vec3 pos = position;
-                    float tide = sin(uTime * 0.6) * 0.05 + 0.5;
-                    float waveArea = smoothstep(tide, tide + 0.1, vUv.y);
-                    float wave = snoise(vec2(pos.x * 0.1, pos.y * 0.1 + uTime * 0.5)) * 0.6;
-                    wave += snoise(vec2(pos.x * 0.3 - uTime * 0.8, pos.y * 0.3)) * 0.3;
-                    
-                    pos.z += wave * waveArea;
-                    
-                    gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
-                }
-            `,
-            fragmentShader: `
-                varying vec2 vUv; 
-                uniform float uTime; 
-                ${noiseGLSL}
-                void main() {
-                    vec3 shallowColor = vec3(0.1, 0.6, 0.8);
-                    vec3 deepColor = vec3(0.0, 0.1, 0.4);
-                    vec3 foamColor = vec3(1.0, 1.0, 1.0);
-                    
-                    float tide = sin(uTime * 0.6) * 0.05 + 0.5;
-                    float noiseVal = snoise(vec2(vUv.x * 15.0, uTime * 0.2)) * 0.03;
-                    float edge = tide + noiseVal;
-                    
-                    vec3 color = mix(shallowColor, deepColor, smoothstep(edge, 1.0, vUv.y));
-                    
-                    float alpha = smoothstep(edge - 0.01, edge + 0.03, vUv.y) * 0.85;
-                    
-                    float foamWidth = 0.008;
-                    float foam = smoothstep(edge - foamWidth, edge, vUv.y) - smoothstep(edge, edge + foamWidth * 2.0, vUv.y);
-                    foam *= smoothstep(0.1, 0.8, snoise(vec2(vUv.x * 50.0, vUv.y * 50.0 - uTime * 1.5)) * 0.5 + 0.5);
-                    
-                    float minTide = 0.45 - 0.03;
-                    if (vUv.y < edge) { 
-                        float wetArea = smoothstep(minTide - 0.02, minTide + 0.03, vUv.y);
-                        color = vec3(0.0); 
-                        alpha = wetArea * 0.25; 
-                    }
-                    
-                    color = mix(color, foamColor, foam); 
-                    alpha = mix(alpha, 1.0, foam);
-                    
-                    if (vUv.y > edge + 0.02) {
-                        color += (snoise(vec2(vUv.x * 30.0 - uTime * 0.2, vUv.y * 30.0)) * 0.5 + 0.5) * 0.08 * foamColor;
-                    }
-                    
-                    gl_FragColor = vec4(color, alpha);
-                }
-            `,
-            transparent: true, side: THREE.DoubleSide
-        });
-        const sea = new THREE.Mesh(new THREE.PlaneGeometry(planeSize, planeSize, 256, 256), seaMat);
-        sea.rotation.x = -Math.PI / 2; sea.position.y = 0.05;
-        scene.add(sea);
-
-        // ==========================================
-        // 5. アイテム生成とゲーム管理
-        // ==========================================
-        const items = [];
-        let score = 0;
-        let stage = 1;
-        let isTransitioning = true; // 初期はスタート画面表示中のため操作不可
-        
-        const SPRITE_SIZE = 2.0; 
-
-        function initStage() {
-            items.forEach(item => scene.remove(item));
-            items.length = 0;
-            document.getElementById('stageVal').innerText = stage;
-
-            resetCamera();
-
-            // ゴミの数を10個減らした (初期10個〜)
-            const trashCount = 10 + stage * 5; 
-            for (let i = 0; i < trashCount; i++) {
-                spawnTrashItem();
-            }
-            
-            const shellCount = 2 + Math.floor(Math.random() * 2);
-            for (let i = 0; i < shellCount; i++) {
-                spawnShellItem();
-            }
-            
-            // 残り数だけ更新（stageClearは呼ばない）
-            const remain = items.filter(i => (i.userData.type !== 'shell') && !i.userData.collected).length;
-            document.getElementById('remainVal').innerText = remain;
-        }
-
-        function spawnTrashItem() {
-            const info = getRandomTrash();
-            const url = `./images/${info.name}.png`;
-            const sprite = createSpriteWithFallback(url, info.name, SPRITE_SIZE);
-
-            sprite.userData = { 
-                type: info.type, 
-                collected: false, 
-                originalPos: new THREE.Vector3(),
-                trashInfo: info
-            };
-            
-            const px = (Math.random() - 0.5) * 80; 
-            const pz = 5 + Math.random() * 40;     
-            sprite.position.set(px, sprite.scale.y / 2, pz);
-            sprite.userData.originalPos.copy(sprite.position);
-            
-            scene.add(sprite);
-            items.push(sprite);
-        }
-
-        function spawnShellItem() {
-            const info = getRandomShell();
-            const url = `./images/${info.no}.png`;
-            const sprite = createSpriteWithFallback(url, info.kasenName, SPRITE_SIZE);
-
-            sprite.userData = { 
-                type: 'shell', 
-                collected: false, 
-                originalPos: new THREE.Vector3(),
-                shellInfo: info
-            };
-            
-            const px = (Math.random() - 0.5) * 80; 
-            const pz = 5 + Math.random() * 40;     
-            sprite.position.set(px, sprite.scale.y / 2, pz);
-            sprite.userData.originalPos.copy(sprite.position);
-            
-            scene.add(sprite);
-            items.push(sprite);
-        }
-
-        function updateUI() {
-            const remain = items.filter(i => (i.userData.type !== 'shell') && !i.userData.collected).length;
-            document.getElementById('remainVal').innerText = remain;
-            if (remain === 0 && !isTransitioning && !gameCleared) stageClear();
-        }
-
-        function showEffect(text, x, y, isError = false) {
-            const effect = document.createElement('div');
-            effect.className = 'get-effect' + (isError ? ' error-effect' : '');
-            effect.innerText = text;
-            effect.style.left = `${x}px`; effect.style.top = `${y}px`;
-            document.body.appendChild(effect);
-            setTimeout(() => effect.remove(), 1000);
-        }
-
-        // ステージクリア処理と貝殻のアンベールアニメーション
-        function stageClear() {
-            if (gameCleared) return;
-            isTransitioning = true; // 演出中のため操作不可に
-            
-            // ★裏で次のステージのアイテム配置とロードを行う
-            stage++;
-            initStage();
-
-            // モーダルUIの準備
-            const clearScreen = document.getElementById('clear-screen');
-            const title = document.getElementById('clear-stage-title');
-            const list = document.getElementById('clear-shell-list');
-            const nextBtn = document.getElementById('next-stage-btn');
-            
-            title.innerText = `STAGE ${stage - 1} CLEAR!`;
-            list.innerHTML = '';
-            nextBtn.style.display = 'none';
-            clearScreen.style.display = 'flex';
-            
-            // 拾った貝殻のアニメーション表示
-            if (currentStageShells.length === 0) {
-                list.innerHTML = '<p style="color:#666; width:100%; text-align:center;">このステージでは貝殻が見つかりませんでした。</p>';
-                nextBtn.style.display = 'block';
-            } else {
-                let delay = 0;
-                currentStageShells.forEach((shellInfo, index) => {
-                    setTimeout(() => {
-                        const item = document.createElement('div');
-                        item.className = 'clear-shell-item';
-                        item.innerHTML = `
-                            <div style="font-size:10px; color:#999; width:100%; text-align:left;">No.${String(shellInfo.no).padStart(2, '0')}</div>
-                            <img src="./images/${shellInfo.no}.png" onerror="this.style.display='none'; this.parentNode.innerHTML+='<span style=\\'font-size:30px; color:#ccc;\\'>🐚</span>';">
-                            <span style="font-size:11px; font-weight:700; margin-top:5px; text-align:center;">${shellInfo.kasenName}</span>
-                        `;
-                        list.appendChild(item);
-                        
-                        // 最後の貝が表示されたら少し待ってNEXTボタンを出す
-                        if (index === currentStageShells.length - 1) {
-                            setTimeout(() => { nextBtn.style.display = 'block'; }, 600);
-                        }
-                    }, delay);
-                    delay += 600; // 0.6秒間隔で順番に表示
-                });
-            }
-        }
-
-        function gameComplete() {
-            gameCleared = true;
-            isTransitioning = true;
-            
-            const clearScreen = document.getElementById('clear-screen');
-            const title = document.getElementById('clear-stage-title');
-            const desc = document.getElementById('clear-desc');
-            const list = document.getElementById('clear-shell-list');
-            const nextBtn = document.getElementById('next-stage-btn');
-            
-            title.innerText = "GALLERY COMPLETE!!";
-            title.style.color = "#F57F17";
-            desc.innerHTML = `全36種の歌仙貝を収集しました！<br>最終スコア: ${score} pt`;
-            list.innerHTML = '';
-            nextBtn.style.display = 'none';
-            clearScreen.style.display = 'flex';
-        }
-
-        // ==========================================
-        // 6. ドラッグ＆ドロップ実装
-        // ==========================================
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
-        const floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        let draggingItem = null;
-        let dragOffset = new THREE.Vector3();
-
-        window.addEventListener('pointerdown', (e) => {
-            if (isTransitioning || gameCleared || e.target.closest('#dpad') || e.target.closest('#trash-bins') || e.target.closest('.overlay-screen')) return;
-
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-            
-            if (clientX === undefined) return;
-
-            mouse.x = (clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-
-            const intersects = raycaster.intersectObjects(items.filter(i => !i.userData.collected));
-            if (intersects.length > 0) {
-                const item = intersects[0].object;
-                
-                draggingItem = item;
-                draggingItem.userData.originalPos.copy(draggingItem.position);
-                
-                const intersectPoint = new THREE.Vector3();
-                raycaster.ray.intersectPlane(floorPlane, intersectPoint);
-                dragOffset.copy(intersectPoint).sub(draggingItem.position);
-                
-                document.body.style.cursor = 'grabbing';
-            }
-        });
-
-        window.addEventListener('pointermove', (e) => {
-            document.querySelectorAll('.bin').forEach(b => b.classList.remove('hover'));
-            
-            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-            
-            if (clientX === undefined) return;
-
-            const hoveredEl = document.elementFromPoint(clientX, clientY);
-            if (hoveredEl && hoveredEl.closest('.bin')) {
-                hoveredEl.closest('.bin').classList.add('hover');
-            }
-
-            if (!draggingItem) return;
-
-            mouse.x = (clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
-            raycaster.setFromCamera(mouse, camera);
-
-            const intersectPoint = new THREE.Vector3();
-            if (raycaster.ray.intersectPlane(floorPlane, intersectPoint)) {
-                intersectPoint.sub(dragOffset);
-                intersectPoint.x = THREE.MathUtils.clamp(intersectPoint.x, -45, 45);
-                intersectPoint.z = THREE.MathUtils.clamp(intersectPoint.z, 2, 45);
-                
-                draggingItem.position.x = intersectPoint.x;
-                draggingItem.position.z = intersectPoint.z;
-            }
-        });
-
-        window.addEventListener('pointerup', (e) => {
-            document.body.style.cursor = 'default';
-            document.querySelectorAll('.bin').forEach(b => b.classList.remove('hover'));
-
-            if (!draggingItem) return;
-
-            const item = draggingItem;
-            draggingItem = null;
-            
-            const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
-            const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
-
-            const type = item.userData.type;
-            const el = document.elementFromPoint(clientX, clientY);
-            const dropBin = el ? el.closest('.bin') : null;
-
-            if (dropBin) {
-                if ((type === 'burnable' && dropBin.id === 'bin-burnable') || 
-                    (type === 'unburnable' && dropBin.id === 'bin-unburnable') ||
-                    (type === 'large' && dropBin.id === 'bin-large') ||
-                    (type === 'shell' && dropBin.id === 'bin-shell')) {
-                    
-                    let points = 10;
-                    if (type === 'large') points = 20;
-                    if (type === 'shell') points = 30;
-
-                    if (type === 'shell' && item.userData.shellInfo) {
-                        const info = item.userData.shellInfo;
-                        currentStageShells.push(info); // このステージで拾った貝として記録
-
-                        if (!collectedShells.has(info.no)) {
-                            collectedShells.add(info.no);
-                            showEffect(`NEW! ${info.kasenName}`, clientX, clientY - 40);
-                            
-                            if (collectedShells.size === 36) {
-                                collectItem(item, points, clientX, clientY);
-                                setTimeout(gameComplete, 1500);
-                                return;
-                            }
-                        }
-                    }
-                    collectItem(item, points, clientX, clientY);
-
-                } else {
-                    showEffect('Miss!', clientX, clientY, true);
-                    item.position.copy(item.userData.originalPos);
-                }
-            } else {
-                item.userData.originalPos.copy(item.position);
-            }
-        });
-
-        function collectItem(item, points, x, y) {
-            scene.remove(item);
-            items.splice(items.indexOf(item), 1);
-            score += points;
-            document.getElementById('scoreVal').innerText = score;
-            showEffect(`+${points}`, x, y);
-            updateUI();
-        }
-
-        // ==========================================
-        // 7. カメラ移動制御 (WASD & UIボタン)
-        // ==========================================
-        const keys = { w: false, a: false, s: false, d: false };
-
-        window.addEventListener('keydown', (e) => { const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = true; });
-        window.addEventListener('keyup', (e) => { const k = e.key.toLowerCase(); if (keys.hasOwnProperty(k)) keys[k] = false; });
-
-        const setupBtn = (id, key) => {
-            const btn = document.getElementById(id);
-            btn.addEventListener('pointerdown', (e) => { e.preventDefault(); keys[key] = true; btn.classList.add('active'); });
-            btn.addEventListener('pointerup', (e) => { e.preventDefault(); keys[key] = false; btn.classList.remove('active'); });
-            btn.addEventListener('pointerleave', (e) => { e.preventDefault(); keys[key] = false; btn.classList.remove('active'); });
+        const DOM = {
+            stageNum: document.getElementById('stage-num'),
+            lifeNum: document.getElementById('life-num'),
+            lifeBar: document.getElementById('life-bar'),
+            board: document.getElementById('puzzle-board'),
+            startScreen: document.getElementById('start-screen'),
+            resultScreen: document.getElementById('result-screen'),
+            quizScreen: document.getElementById('quiz-screen'),
+            allClearScreen: document.getElementById('all-clear-screen'),
+            gameOverScreen: document.getElementById('game-over-screen'),
+            btnStart: document.getElementById('btn-start'),
+            btnNext: document.getElementById('btn-next'),
+            btnQuizNext: document.getElementById('btn-quiz-next')
         };
-        setupBtn('btn-up', 'w'); setupBtn('btn-down', 's'); setupBtn('btn-left', 'a'); setupBtn('btn-right', 'd');
 
-        function updateCamera() {
-            if (isTransitioning || gameCleared) return;
-            const speed = 0.3;
-            const forward = new THREE.Vector3();
-            camera.getWorldDirection(forward); forward.y = 0; forward.normalize();
-            const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+        // ==========================================
+        // 画像フォールバック生成
+        // ==========================================
+        function getImageUrl(no, kasenName, callback) {
+            const url = `./images/${no}.png`;
+            const img = new Image();
+            img.onload = () => callback(url);
+            img.onerror = () => {
+                // 画像がない場合はCanvasで和風の代替画像を生成
+                const canvas = document.createElement('canvas');
+                canvas.width = 300; canvas.height = 300;
+                const ctx = canvas.getContext('2d');
+                
+                // 背景グラデーション
+                const grad = ctx.createLinearGradient(0, 0, 300, 300);
+                grad.addColorStop(0, '#fdfbfb');
+                grad.addColorStop(1, '#ebedee');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, 300, 300);
+                
+                // 模様（波のような円）
+                ctx.strokeStyle = 'rgba(0, 86, 179, 0.1)';
+                ctx.lineWidth = 4;
+                for(let i=0; i<5; i++) {
+                    ctx.beginPath();
+                    ctx.arc(150, 150, 40 + i*30, 0, Math.PI*2);
+                    ctx.stroke();
+                }
 
-            if (keys.w) camera.position.addScaledVector(forward, speed);
-            if (keys.s) camera.position.addScaledVector(forward, -speed);
-            if (keys.a) camera.position.addScaledVector(right, -speed);
-            if (keys.d) camera.position.addScaledVector(right, speed);
-
-            if (camera.position.z < 2) camera.position.z = 2; 
-            if (camera.position.z > 45) camera.position.z = 45;
-            if (camera.position.x < -45) camera.position.x = -45;
-            if (camera.position.x > 45) camera.position.x = 45;
-            camera.position.y = 4;
+                // テキスト
+                ctx.fillStyle = '#0056b3';
+                ctx.font = 'bold 36px "Noto Serif JP", serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(kasenName, 150, 140);
+                ctx.font = '16px "Noto Sans JP", sans-serif';
+                ctx.fillStyle = '#666';
+                ctx.fillText(`No.${no}`, 150, 180);
+                
+                callback(canvas.toDataURL());
+            };
+            img.src = url;
         }
 
         // ==========================================
-        // 8. アニメーションループ と 初期実行
+        // タイマー管理
         // ==========================================
-        const clock = new THREE.Clock();
-
-        function animate() {
-            requestAnimationFrame(animate);
-            seaMat.uniforms.uTime.value = clock.getElapsedTime();
-            updateCamera();
-            renderer.render(scene, camera);
+        function updateLifeUI() {
+            DOM.lifeNum.innerText = totalLife;
+            const pct = Math.max(0, (totalLife / INITIAL_LIFE) * 100);
+            DOM.lifeBar.style.width = `${pct}%`;
+            if (pct < 20) DOM.lifeBar.classList.add('danger');
+            else DOM.lifeBar.classList.remove('danger');
         }
 
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            isPlaying = true;
+            timeInCurrentStage = 0;
+            timerInterval = setInterval(() => {
+                totalLife--;
+                timeInCurrentStage++;
+                updateLifeUI();
+                
+                if (totalLife <= 0) {
+                    totalLife = 0;
+                    updateLifeUI();
+                    gameOver();
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            isPlaying = false;
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        function gameOver() {
+            stopTimer();
+            document.getElementById('go-stage').innerText = currentStage;
+            DOM.gameOverScreen.classList.remove('hidden');
+        }
+
+        // ==========================================
+        // パズルロジック
+        // ==========================================
+        function initStage() {
+            DOM.stageNum.innerText = currentStage;
+            const data = shellData[currentStage - 1];
+            
+            getImageUrl(data.no, data.kasenName, (url) => {
+                currentImageUrl = url;
+                createBoard();
+                startTimer();
+            });
+        }
+
+        function createBoard() {
+            DOM.board.innerHTML = '';
+            board = [0, 1, 2, 3, 4, 5, null, 7, 8]; // 6番目(左下)がnull
+            missingPieceElement = null;
+            
+            // ピースの生成 (0〜8)
+            for (let i = 0; i < 9; i++) {
+                if (i === EMPTY_INDEX) {
+                    // 完成時にはめる用のピースを作っておく（非表示）
+                    const p = document.createElement('div');
+                    p.className = 'piece';
+                    p.style.backgroundImage = `url(${currentImageUrl})`;
+                    const origX = (i % 3) * 100;
+                    const origY = Math.floor(i / 3) * 100;
+                    p.style.backgroundPosition = `-${origX}px -${origY}px`;
+                    p.style.display = 'none';
+                    p.style.zIndex = '10';
+                    DOM.board.appendChild(p);
+                    missingPieceElement = p;
+                    continue;
+                }
+
+                const piece = document.createElement('div');
+                piece.className = 'piece';
+                piece.dataset.id = i;
+                piece.style.backgroundImage = `url(${currentImageUrl})`;
+                
+                const origX = (i % 3) * 100;
+                const origY = Math.floor(i / 3) * 100;
+                piece.style.backgroundPosition = `-${origX}px -${origY}px`;
+                
+                // クリックイベント
+                piece.addEventListener('click', () => handlePieceClick(i));
+                
+                DOM.board.appendChild(piece);
+            }
+
+            // シャッフル
+            shuffleBoard();
+            renderBoard();
+        }
+
+        function shuffleBoard() {
+            let emptyPos = EMPTY_INDEX;
+            // 150回ランダムに移動してシャッフル
+            let prevEmpty = -1;
+            for (let i = 0; i < 150; i++) {
+                const moves = getValidMoves(emptyPos);
+                // 直前に戻る動きを避ける（可能な場合）
+                const validMoves = moves.filter(m => m !== prevEmpty);
+                const nextPos = validMoves.length > 0 ? validMoves[Math.floor(Math.random() * validMoves.length)] : moves[0];
+                
+                // swap
+                const pieceId = board[nextPos];
+                board[emptyPos] = pieceId;
+                board[nextPos] = null;
+                
+                prevEmpty = emptyPos;
+                emptyPos = nextPos;
+            }
+        }
+
+        function getValidMoves(idx) {
+            const moves = [];
+            const x = idx % 3;
+            const y = Math.floor(idx / 3);
+            if (x > 0) moves.push(idx - 1); // 左
+            if (x < 2) moves.push(idx + 1); // 右
+            if (y > 0) moves.push(idx - 3); // 上
+            if (y < 2) moves.push(idx + 3); // 下
+            return moves;
+        }
+
+        function renderBoard() {
+            for (let i = 0; i < 9; i++) {
+                const pieceId = board[i];
+                if (pieceId !== null) {
+                    // IDからDOM要素を探す
+                    const el = DOM.board.querySelector(`.piece[data-id='${pieceId}']`);
+                    const x = (i % 3) * 100;
+                    const y = Math.floor(i / 3) * 100;
+                    el.style.transform = `translate(${x}px, ${y}px)`;
+                }
+            }
+        }
+
+        function handlePieceClick(pieceId) {
+            if (!isPlaying) return;
+            
+            const currentIdx = board.indexOf(pieceId);
+            const emptyIdx = board.indexOf(null);
+            
+            const validMoves = getValidMoves(emptyIdx);
+            if (validMoves.includes(currentIdx)) {
+                // 移動可能
+                board[emptyIdx] = pieceId;
+                board[currentIdx] = null;
+                renderBoard();
+                checkClear();
+            }
+        }
+
+        // ==========================================
+        // クリア判定とエフェクト
+        // ==========================================
+        function checkClear() {
+            let isClear = true;
+            for (let i = 0; i < 9; i++) {
+                if (i === EMPTY_INDEX) {
+                    if (board[i] !== null) isClear = false;
+                } else {
+                    if (board[i] !== i) isClear = false;
+                }
+            }
+
+            if (isClear) {
+                stopTimer();
+                
+                // 欠けていたピースをはめる
+                const x = (EMPTY_INDEX % 3) * 100;
+                const y = Math.floor(EMPTY_INDEX / 3) * 100;
+                missingPieceElement.style.transform = `translate(${x}px, ${y}px)`;
+                missingPieceElement.style.display = 'block';
+                
+                // すこし間を置いてエフェクト
+                setTimeout(() => {
+                    playClearEffect();
+                }, 200);
+            }
+        }
+
+        function playClearEffect() {
+            // スッキリするパーティクルエフェクト
+            const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
+            const rect = DOM.board.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            for (let i = 0; i < 50; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                document.body.appendChild(p);
+                
+                const size = Math.random() * 8 + 4;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+                p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                p.style.left = centerX + 'px';
+                p.style.top = centerY + 'px';
+
+                const angle = Math.random() * Math.PI * 2;
+                const distance = Math.random() * 150 + 50;
+                const tx = Math.cos(angle) * distance;
+                const ty = Math.sin(angle) * distance;
+
+                p.animate([
+                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
+                ], {
+                    duration: Math.random() * 500 + 500,
+                    easing: 'cubic-bezier(0, .9, .57, 1)',
+                    fill: 'forwards'
+                });
+
+                setTimeout(() => p.remove(), 1000);
+            }
+
+            // 結果画面へ
+            setTimeout(showResult, 1200);
+        }
+
+        // ==========================================
+        // リザルト画面
+        // ==========================================
+        function showResult() {
+            const data = shellData[currentStage - 1];
+            document.getElementById('result-img').style.backgroundImage = `url(${currentImageUrl})`;
+            document.getElementById('result-name').innerText = `${data.kasenName} (${data.name})`;
+            document.getElementById('result-poem').innerHTML = data.poem;
+            document.getElementById('result-source').innerText = data.source || '不明';
+            document.getElementById('result-author').innerText = data.author || '不明';
+            
+            document.getElementById('result-time').innerText = `Clear Time: ${timeInCurrentStage}秒`;
+            
+            const bonusMsg = document.getElementById('bonus-msg');
+            if (timeInCurrentStage <= 10) {
+                bonusMsg.innerText = 'FAST CLEAR BONUS! Life +5';
+                totalLife += 5;
+                updateLifeUI();
+            } else {
+                bonusMsg.innerText = '';
+            }
+
+            DOM.resultScreen.classList.remove('hidden');
+        }
+
+        DOM.btnNext.addEventListener('click', () => {
+            DOM.resultScreen.classList.add('hidden');
+            
+            // 5ステージに1回クイズ
+            if (currentStage % 5 === 0 && currentStage < MAX_STAGE) {
+                showQuiz();
+            } else {
+                nextStage();
+            }
         });
 
-        // 実行フロー：アセットプリロード -> 初期配置 -> 裏でアニメーション開始
-        preloadAssets();
-        initStage();
-        animate();
+        function nextStage() {
+            if (currentStage >= MAX_STAGE) {
+                document.getElementById('final-score').innerText = totalLife;
+                DOM.allClearScreen.classList.remove('hidden');
+            } else {
+                currentStage++;
+                initStage();
+            }
+        }
+
+        // ==========================================
+        // クイズ機能
+        // ==========================================
+        function showQuiz() {
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            document.getElementById('quiz-result-msg').innerText = '';
+            DOM.btnQuizNext.classList.add('hidden');
+
+            // これまでクリアした貝の中からランダムに1つ正解を選ぶ
+            const pastData = shellData.slice(0, currentStage);
+            const correctData = pastData[Math.floor(Math.random() * pastData.length)];
+            
+            document.getElementById('quiz-question').innerText = `「${correctData.kasenName}」はどれ？`;
+
+            // 不正解の選択肢を作る（過去のデータから正解以外をランダムに抽出）
+            let others = pastData.filter(d => d.no !== correctData.no);
+            // シャッフル
+            others.sort(() => Math.random() - 0.5);
+            // 3つ抽出（足りなければそのまま）
+            let options = [correctData, ...others.slice(0, 3)];
+            options.sort(() => Math.random() - 0.5); // 選択肢をシャッフル
+
+            let isAnswered = false;
+
+            options.forEach(opt => {
+                const btn = document.createElement('div');
+                btn.className = 'quiz-option';
+                
+                // Canvasフォールバック付きで画像を取得しセット
+                getImageUrl(opt.no, opt.kasenName, (url) => {
+                    btn.style.backgroundImage = `url(${url})`;
+                });
+
+                btn.addEventListener('click', () => {
+                    if (isAnswered) return;
+                    isAnswered = true;
+                    
+                    if (opt.no === correctData.no) {
+                        btn.classList.add('correct');
+                        document.getElementById('quiz-result-msg').innerText = '正解！ Life +10';
+                        document.getElementById('quiz-result-msg').style.color = '#4caf50';
+                        totalLife += 10;
+                        updateLifeUI();
+                    } else {
+                        btn.classList.add('wrong');
+                        document.getElementById('quiz-result-msg').innerText = '残念...';
+                        document.getElementById('quiz-result-msg').style.color = '#f44336';
+                        // 正解の枠を光らせる
+                        const correctIndex = options.findIndex(o => o.no === correctData.no);
+                        optionsContainer.children[correctIndex].classList.add('correct');
+                    }
+                    
+                    DOM.btnQuizNext.classList.remove('hidden');
+                });
+
+                optionsContainer.appendChild(btn);
+            });
+
+            DOM.quizScreen.classList.remove('hidden');
+        }
+
+        DOM.btnQuizNext.addEventListener('click', () => {
+            DOM.quizScreen.classList.add('hidden');
+            nextStage();
+        });
+
+        // ==========================================
+        // イベントリスナー
+        // ==========================================
+        DOM.btnStart.addEventListener('click', () => {
+            DOM.startScreen.classList.add('hidden');
+            updateLifeUI();
+            initStage();
+        });
 
     </script>
 </body>
