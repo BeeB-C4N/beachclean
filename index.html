@@ -1,778 +1,2158 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>S36</title>
-    <!-- ファビコンの設置 -->
-    <link rel="icon" href="./images/logo.png" type="image/png">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            /* ロゴ画像の紺色をアクセントに */
-            --primary: #1A237E; 
-            --secondary: #FFF9C4; /* 淡い黄色 */
-            --accent: #F48FB1; /* 淡いピンク */
-            --blue-light: #B3E5FC; /* 淡い水色 */
-            --text-main: #333;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>おえかき水族館 — みんなの魚が泳ぐ海</title>
+<style>
+  :root{
+    --panel: rgba(4, 24, 49, .76);
+    --panel-border: rgba(190, 237, 255, .22);
+    --text: #effbff;
+    --muted: #a8d4e5;
+    --accent: #56dcff;
+    --danger: #ff7085;
+    --global-fish-size: 1;
+  }
 
-        body {
-            margin: 0;
-            padding: 0;
-            /* ピンク、黄色、水色のポップなグラデーション */
-            background: linear-gradient(135deg, var(--blue-light) 0%, var(--secondary) 50%, var(--accent) 100%);
-            background-attachment: fixed;
-            font-family: 'Noto Sans JP', sans-serif;
-            color: var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-            user-select: none;
-        }
+  *{ box-sizing:border-box; }
+  html,body{
+    width:100%; height:100%; margin:0; overflow:hidden;
+    background:#03192e; color:var(--text);
+    font-family: system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif;
+    touch-action:manipulation;
+  }
+  button,input{ font:inherit; }
 
-        /* 共通のオーバーレイ画面 (Start, Result, Quiz, Clear) */
-        .screen {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            /* 背景に溶け込む半透明な白 */
-            background: rgba(255, 255, 255, 0.6);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 100;
-            backdrop-filter: blur(10px);
-            transition: opacity 0.3s;
-        }
-        .hidden {
-            display: none !important;
-            opacity: 0;
-            pointer-events: none;
-        }
+  #app,#ocean{
+    position:fixed; inset:0;
+  }
+  #ocean{
+    overflow:hidden;
+    background:
+      radial-gradient(ellipse at 50% -12%,
+        rgba(248,255,238,.88) 0%,
+        rgba(170,249,244,.62) 18%,
+        rgba(72,224,218,.26) 40%,
+        transparent 66%),
+      linear-gradient(180deg,
+        #7debf0 0%,
+        #42ddd9 24%,
+        #20c8bd 49%,
+        #0fa7a9 73%,
+        #087b91 100%);
+    isolation:isolate;
+  }
 
-        h1, h2 { font-family: 'Noto Serif JP', serif; }
-        
-        /* ゲームメインUI */
-        #game-container {
-            width: 100%;
-            max-width: 400px;
-            padding: 20px;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
+  /* 海中の奥行き */
+  .water-haze{
+    position:absolute; inset:0; pointer-events:none; z-index:1;
+    background:
+      linear-gradient(180deg,
+        rgba(247,255,247,.22),
+        rgba(219,255,252,.06) 31%,
+        rgba(0,116,121,.06) 72%,
+        rgba(0,66,91,.20) 100%),
+      radial-gradient(ellipse at 50% 38%,
+        transparent 0 45%,
+        rgba(0,109,117,.06) 78%,
+        rgba(0,62,87,.18) 100%);
+  }
+  .sun-rays{
+    position:absolute; left:-12%; right:-12%; top:-25%; height:92%;
+    z-index:1; opacity:.52; pointer-events:none;
+    background:
+      conic-gradient(from 164deg at 42% 0%,
+        transparent 0 4deg, rgba(190,244,255,.14) 5deg 10deg,
+        transparent 11deg 19deg, rgba(209,251,255,.10) 20deg 27deg,
+        transparent 28deg 42deg, rgba(194,246,255,.09) 43deg 48deg,
+        transparent 49deg 360deg);
+    filter:blur(12px);
+    transform-origin:50% 0;
+    animation:rays 13s ease-in-out infinite alternate;
+  }
+  @keyframes rays{
+    from{ transform:translateX(-2%) rotate(-2deg) scaleX(.96); opacity:.28; }
+    to{ transform:translateX(3%) rotate(3deg) scaleX(1.05); opacity:.47; }
+  }
 
-        /* ヘッダー：ライフとステージ */
-        .header {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        .stage-info {
-            font-size: 18px;
-            font-weight: 700;
-            color: var(--primary);
-            background: rgba(255, 255, 255, 0.8);
-            padding: 6px 16px;
-            border-radius: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .life-info {
-            font-size: 16px;
-            font-weight: bold;
-            color: var(--primary);
-            background: rgba(255, 255, 255, 0.8);
-            padding: 6px 16px;
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .life-info span {
-            color: #E91E63;
-            font-size: 20px;
-        }
+  .caustics{
+    position:absolute; inset:-18%; z-index:2; pointer-events:none;
+    opacity:.24; mix-blend-mode:screen; filter:blur(.7px);
+    background-image:
+      repeating-radial-gradient(ellipse at 50% 50%,
+        transparent 0 13px, rgba(224,255,246,.38) 14px 16px, transparent 18px 31px);
+    background-size:190px 120px;
+    transform:perspective(520px) rotateX(58deg) scale(1.4);
+    transform-origin:50% 0;
+    animation:caustics 11s linear infinite;
+  }
+  @keyframes caustics{
+    from{ background-position:0 0; }
+    to{ background-position:190px 120px; }
+  }
 
-        /* ライフバー */
-        .life-bar-container {
-            width: 100%;
-            height: 12px;
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 6px;
-            overflow: hidden;
-            margin-bottom: 25px;
-            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
-        }
-        #life-bar {
-            height: 100%;
-            /* ライフバーもポップなグラデーションに */
-            background: linear-gradient(90deg, #4FC3F7, #64FFDA);
-            width: 100%;
-            transition: width 1s linear, background 0.3s;
-        }
-        #life-bar.danger { background: linear-gradient(90deg, #FF8A65, #FF5252); }
+  #particleLayer,#bubbleLayer,#plantLayer,#fishLayer{
+    position:absolute; inset:0; pointer-events:none;
+  }
+  #particleLayer{ z-index:3; }
+  #plantLayer{ z-index:4; }
+  #bubbleLayer{ z-index:7; }
+  #fishLayer{ z-index:8; }
 
-        /* パズルエリア */
-        #puzzle-board {
-            width: 300px;
-            height: 300px;
-            background: #000; /* 穴は黒色 */
-            position: relative;
-            /* 枠を白く太めにしてポップに */
-            border: 6px solid #fff;
-            border-radius: 8px;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.1), 0 0 0 4px var(--blue-light);
-            overflow: hidden;
-        }
+  .particle{
+    position:absolute; width:2px; height:2px; border-radius:50%;
+    background:rgba(228,250,255,.63);
+    box-shadow:0 0 7px rgba(175,238,255,.6);
+    animation:drift var(--dur) ease-in-out infinite alternate;
+  }
+  @keyframes drift{
+    from{ transform:translate3d(0,0,0); opacity:.18; }
+    45%{ opacity:.82; }
+    to{ transform:translate3d(var(--dx),var(--dy),0); opacity:.25; }
+  }
 
-        .piece {
-            width: 100px;
-            height: 100px;
-            position: absolute;
-            background-size: 300px 300px;
-            border: 1px solid rgba(255,255,255,0.6);
-            box-sizing: border-box;
-            cursor: pointer;
-            transition: transform 0.15s ease-out;
-            box-shadow: inset 0 0 12px rgba(0,0,0,0.1);
-        }
+  .bubble{
+    position:absolute; bottom:-12vh; width:var(--s); height:var(--s);
+    border-radius:50%;
+    border:1px solid rgba(220,250,255,.66);
+    background:radial-gradient(circle at 30% 26%,rgba(255,255,255,.85) 0 5%,rgba(162,229,255,.18) 8% 50%,rgba(255,255,255,.04) 68%);
+    box-shadow:inset -2px -2px 5px rgba(255,255,255,.16),0 0 9px rgba(158,227,255,.13);
+    animation:bubble-rise var(--dur) linear infinite;
+    animation-delay:var(--delay);
+    opacity:0;
+  }
+  @keyframes bubble-rise{
+    0%{ transform:translate3d(0,0,0) scale(.7); opacity:0; }
+    8%{ opacity:.62; }
+    45%{ transform:translate3d(var(--sway),-54vh,0) scale(.94); }
+    88%{ opacity:.5; }
+    100%{ transform:translate3d(calc(var(--sway) * -.55),-118vh,0) scale(1.18); opacity:0; }
+  }
 
-        /* ボタン類 */
-        .btn {
-            background: linear-gradient(45deg, #FF8A65, #FFB74D); /* ピンクオレンジ〜黄色のグラデーション */
-            color: white;
-            border: none;
-            padding: 14px 40px;
-            font-size: 20px;
-            font-weight: bold;
-            border-radius: 40px;
-            cursor: pointer;
-            box-shadow: 0 6px 12px rgba(255, 138, 101, 0.4);
-            transition: transform 0.1s, background 0.2s, box-shadow 0.2s;
-            font-family: inherit;
-            margin-top: 20px;
-        }
-        .btn:hover { 
-            background: linear-gradient(45deg, #F48FB1, #FFCA28); 
-            transform: translateY(-2px); 
-            box-shadow: 0 8px 16px rgba(244, 143, 177, 0.5);
-        }
-        .btn:active { transform: translateY(1px); box-shadow: 0 2px 4px rgba(255, 138, 101, 0.4); }
+  .seabed-shadow{
+    position:absolute; left:-5%; right:-5%; bottom:-8vh; height:29vh; z-index:3;
+    background:
+      radial-gradient(ellipse at 22% 70%,rgba(0,11,24,.75),transparent 27%),
+      radial-gradient(ellipse at 76% 72%,rgba(0,9,23,.72),transparent 24%),
+      linear-gradient(180deg,transparent,rgba(0,9,24,.45));
+    filter:blur(7px);
+    pointer-events:none;
+  }
 
-        /* スタート画面 */
-        .instruction {
-            background: #fff;
-            color: var(--primary);
-            padding: 15px 30px;
-            border-radius: 30px;
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 40px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-            text-align: center;
-        }
+  .weed{
+    position:absolute; bottom:-2vh; width:38px; height:var(--h);
+    transform-origin:50% 100%;
+    animation:weed-sway var(--dur) ease-in-out infinite alternate;
+    opacity:var(--opacity);
+    filter:blur(var(--blur));
+  }
+  .weed::before,.weed::after,.weed span{
+    content:""; position:absolute; bottom:0; left:50%;
+    width:var(--w); height:100%;
+    border-radius:100% 0 100% 0;
+    background:linear-gradient(90deg,rgba(6,78,64,.30),rgba(19,137,103,.72),rgba(5,61,57,.42));
+    transform-origin:50% 100%;
+  }
+  .weed::before{ transform:translateX(-50%) rotate(-10deg); height:92%; }
+  .weed::after{ transform:translateX(-50%) rotate(12deg); height:78%; }
+  .weed span{ transform:translateX(-50%) rotate(2deg); height:106%; }
+  @keyframes weed-sway{
+    from{ transform:rotate(-4deg) skewX(-2deg); }
+    to{ transform:rotate(6deg) skewX(3deg); }
+  }
 
-        /* リザルト画面 */
-        #result-screen { text-align: center; padding: 20px; box-sizing: border-box;}
-        #result-title { font-size: 32px; color: #E91E63; margin-bottom: 10px; font-family: 'Noto Serif JP', serif;}
-        .result-image { width: 160px; height: 160px; border-radius: 12px; border: 4px solid #fff; box-shadow: 0 8px 16px rgba(0,0,0,0.15); margin: 10px auto;}
-        .waka-box {
-            background: rgba(255,255,255,0.85);
-            border: 2px dashed var(--blue-light);
-            padding: 20px 25px;
-            border-radius: 16px;
-            margin: 20px 0;
-            max-width: 400px;
-        }
-        .waka-poem { font-family: 'Noto Serif JP', serif; font-size: 18px; line-height: 2.2; margin-bottom: 15px; font-weight: bold; color: var(--primary);}
-        .waka-info { font-size: 12px; color: #555; text-align: right; }
-        .bonus-text { color: #E91E63; font-weight: bold; font-size: 18px; margin: 10px 0; height: 26px; animation: bounceIn 0.5s;}
+  .rock{
+    position:absolute; bottom:-2vh; width:var(--w); height:var(--h);
+    border-radius:54% 45% 36% 45% / 68% 64% 36% 30%;
+    background:
+      radial-gradient(circle at 35% 25%,rgba(78,115,117,.65),transparent 18%),
+      linear-gradient(150deg,rgba(28,65,73,.92),rgba(8,31,42,.96) 70%);
+    box-shadow:inset -14px -15px 22px rgba(0,7,18,.42),0 16px 30px rgba(0,4,12,.34);
+    opacity:var(--opacity);
+    filter:blur(var(--blur));
+  }
 
-        /* クイズ画面 */
-        #quiz-screen h2 { color: var(--primary); margin-bottom: 10px; font-size: 28px;}
-        #quiz-question { font-size: 20px; font-weight: bold; margin-bottom: 20px; color: #333;}
-        .quiz-options {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            max-width: 400px;
-        }
-        .quiz-option {
-            width: 140px; height: 140px;
-            background-size: cover; background-position: center;
-            border-radius: 16px;
-            border: 4px solid #fff;
-            cursor: pointer;
-            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
-            transition: transform 0.15s, border 0.2s;
-        }
-        .quiz-option:hover { transform: scale(1.05); }
-        .quiz-option.correct { border-color: #64FFDA; }
-        .quiz-option.wrong { border-color: #FF5252; opacity: 0.6; }
-        #quiz-result-msg { font-size: 24px; font-weight: bold; margin-top: 20px; height: 35px; }
+  .fish{
+    position:absolute; left:0; top:0;
+    width:var(--fish-width);
+    will-change:transform;
+    pointer-events:auto;
+    cursor:pointer;
+    transform-origin:50% 50%;
+    contain:layout paint style;
+  }
+  .fish-motion{
+    width:100%;
+    transform-origin:50% 50%;
+    will-change:transform;
+  }
+  .fish-flutter{
+    width:100%;
+    transform-origin:54% 50%;
+    animation:fish-flutter var(--flutter-duration) ease-in-out infinite alternate;
+    will-change:transform;
+  }
+  .fish img{
+    display:block; width:100%; height:auto;
+    user-select:none; -webkit-user-drag:none;
+    filter:
+      drop-shadow(0 8px 9px rgba(0,10,24,.22))
+      drop-shadow(0 0 3px rgba(181,239,255,.14));
+  }
+  .fish.depth-far img{ filter:blur(.35px) drop-shadow(0 5px 6px rgba(0,10,24,.14)); opacity:.76; }
+  .fish.depth-near img{ filter:drop-shadow(0 13px 13px rgba(0,8,20,.34)) drop-shadow(0 0 5px rgba(191,243,255,.16)); }
 
-        /* パーティクルエフェクト用 */
-        .particle {
-            position: absolute;
-            pointer-events: none;
-            border-radius: 50%;
-            z-index: 50;
-        }
+  @keyframes fish-flutter{
+    from{ transform:skewY(-1.4deg) rotate(-.7deg) scaleY(.985); }
+    to{ transform:skewY(1.8deg) rotate(.8deg) scaleY(1.018); }
+  }
+  .fish.selected .fish-motion{
+    filter:drop-shadow(0 0 7px rgba(94,224,255,.95)) drop-shadow(0 0 16px rgba(94,224,255,.58));
+  }
+  .fish.selected::after{
+    content:""; position:absolute; inset:-12px;
+    border:1px dashed rgba(123,233,255,.85); border-radius:18px;
+    animation:selected-pulse 1.2s ease-in-out infinite alternate;
+  }
+  @keyframes selected-pulse{ from{opacity:.4} to{opacity:1} }
 
-        @keyframes bounceIn {
-            0% { transform: scale(0.5); opacity: 0; }
-            70% { transform: scale(1.2); }
-            100% { transform: scale(1); opacity: 1; }
-        }
-    </style>
+  .paused *, .paused *::before, .paused *::after{
+    animation-play-state:paused !important;
+  }
+
+  /* 操作パネル */
+  #toolbar{
+    position:fixed; z-index:30; top:max(14px,env(safe-area-inset-top)); left:16px; right:16px;
+    display:flex; align-items:center; gap:9px; pointer-events:none;
+    transition:opacity .28s ease,transform .28s ease;
+  }
+  #toolbar > *{ pointer-events:auto; }
+  .glass{
+    background:var(--panel);
+    border:1px solid var(--panel-border);
+    backdrop-filter:blur(18px) saturate(130%);
+    -webkit-backdrop-filter:blur(18px) saturate(130%);
+    box-shadow:0 12px 34px rgba(0,7,22,.23);
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    padding:9px 13px; border-radius:16px;
+    white-space:nowrap;
+  }
+  .brand-mark{
+    width:34px; height:34px; display:grid; place-items:center;
+    border-radius:12px;
+    background:linear-gradient(145deg,rgba(84,220,255,.31),rgba(54,125,255,.19));
+    border:1px solid rgba(155,236,255,.23);
+    font-size:20px;
+  }
+  .brand strong{ display:block; font-size:14px; letter-spacing:.04em; }
+  .brand small{ color:var(--muted); display:block; font-size:10px; margin-top:1px; }
+
+  .toolbar-actions{
+    margin-left:auto; display:flex; gap:8px; padding:7px;
+    border-radius:16px;
+  }
+  .btn{
+    border:1px solid rgba(190,238,255,.18);
+    color:var(--text); background:rgba(126,205,232,.10);
+    min-height:40px; padding:8px 12px; border-radius:11px;
+    cursor:pointer; transition:.18s ease;
+    display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    white-space:nowrap;
+  }
+  .btn:hover{ background:rgba(132,221,249,.20); transform:translateY(-1px); }
+  .btn:active{ transform:translateY(1px) scale(.98); }
+  .btn.primary{
+    color:#03283a; font-weight:800;
+    background:linear-gradient(135deg,#85efff,#44cdeb);
+    border-color:rgba(255,255,255,.6);
+  }
+  .btn.danger{ color:#ffdce1; border-color:rgba(255,112,133,.28); background:rgba(255,112,133,.12); }
+  .btn.icon{ width:40px; padding:0; font-size:18px; }
+  .btn .desktop-label{ display:inline; }
+
+  #settingsPanel{
+    position:fixed; z-index:29; top:84px; right:16px; width:min(330px,calc(100vw - 32px));
+    padding:16px; border-radius:18px;
+    transform:translateY(-8px) scale(.98); opacity:0; pointer-events:none;
+    transition:.2s ease;
+  }
+  #settingsPanel.open{ transform:none; opacity:1; pointer-events:auto; }
+  #settingsPanel h2{ font-size:15px; margin:0 0 13px; }
+  .setting-row{ display:grid; grid-template-columns:92px 1fr 46px; gap:10px; align-items:center; margin:12px 0; }
+  .setting-row label{ color:var(--muted); font-size:12px; }
+  .setting-row output{ color:#dffaff; font-size:12px; text-align:right; font-variant-numeric:tabular-nums; }
+  input[type=range]{ width:100%; accent-color:#65ddf7; }
+  .settings-note{
+    color:var(--muted); font-size:11px; line-height:1.65;
+    padding:10px 11px; border-radius:12px; background:rgba(146,221,244,.07);
+  }
+  .settings-buttons{ display:flex; gap:8px; margin-top:13px; flex-wrap:wrap; }
+
+  #fishTools{
+    position:fixed; z-index:35; left:50%; bottom:max(18px,env(safe-area-inset-bottom));
+    transform:translate(-50%,16px); opacity:0; pointer-events:none;
+    display:flex; align-items:center; gap:7px; padding:8px;
+    border-radius:17px; transition:.2s ease;
+    max-width:calc(100vw - 24px);
+  }
+  #fishTools.open{ transform:translate(-50%,0); opacity:1; pointer-events:auto; }
+  #selectedName{
+    max-width:160px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    color:#d9f7ff; font-size:12px; padding:0 8px;
+  }
+
+  #emptyState{
+    position:absolute; z-index:12; left:50%; top:50%; transform:translate(-50%,-46%);
+    width:min(480px,calc(100vw - 40px)); text-align:center;
+    pointer-events:none; transition:opacity .3s ease;
+  }
+  #emptyState.hidden{ opacity:0; }
+  .empty-card{
+    padding:24px 22px; border-radius:25px;
+    background:rgba(2,31,58,.45);
+    border:1px solid rgba(190,239,255,.18);
+    backdrop-filter:blur(12px);
+  }
+  .empty-icon{ font-size:54px; filter:drop-shadow(0 8px 20px rgba(0,11,30,.35)); }
+  .empty-card h1{ font-size:clamp(20px,4vw,30px); margin:8px 0 7px; letter-spacing:.04em; }
+  .empty-card p{ color:#bfe6f2; line-height:1.8; margin:0; font-size:13px; }
+
+  #dropOverlay{
+    position:fixed; z-index:60; inset:14px;
+    border:3px dashed rgba(137,237,255,.78); border-radius:28px;
+    background:rgba(3,38,71,.78);
+    backdrop-filter:blur(13px);
+    display:grid; place-items:center; text-align:center;
+    opacity:0; pointer-events:none; transform:scale(.985);
+    transition:.18s ease;
+  }
+  #dropOverlay.show{ opacity:1; transform:none; }
+  #dropOverlay strong{ font-size:clamp(20px,4vw,34px); }
+  #dropOverlay span{ display:block; color:#b9e6f4; margin-top:8px; }
+
+  #toast{
+    position:fixed; z-index:80; left:50%; top:96px;
+    transform:translate(-50%,-12px); opacity:0; pointer-events:none;
+    padding:10px 15px; border-radius:13px;
+    background:rgba(2,25,47,.88); border:1px solid rgba(183,238,255,.23);
+    color:#eafcff; box-shadow:0 10px 25px rgba(0,8,24,.28);
+    font-size:13px; transition:.22s ease;
+  }
+  #toast.show{ opacity:1; transform:translate(-50%,0); }
+
+  #busy{
+    position:fixed; z-index:90; inset:0; display:none; place-items:center;
+    background:rgba(0,18,37,.48); backdrop-filter:blur(6px);
+  }
+  #busy.show{ display:grid; }
+  .busy-card{
+    padding:18px 22px; border-radius:17px; text-align:center;
+    background:rgba(2,29,55,.9); border:1px solid rgba(174,235,255,.22);
+  }
+  .spinner{
+    width:30px; height:30px; border-radius:50%; margin:0 auto 10px;
+    border:3px solid rgba(197,243,255,.18); border-top-color:#71e6ff;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  #showControls{
+    position:fixed; right:14px; bottom:max(14px,env(safe-area-inset-bottom)); z-index:40;
+    opacity:0; pointer-events:none; transform:translateY(8px);
+    transition:.2s ease;
+  }
+  body.controls-hidden #toolbar,
+  body.controls-hidden #settingsPanel,
+  body.controls-hidden #fishTools{
+    opacity:0 !important; pointer-events:none !important; transform:translateY(-12px);
+  }
+  body.controls-hidden #showControls{ opacity:.75; pointer-events:auto; transform:none; }
+
+  @media (max-width:720px){
+    #toolbar{ left:9px; right:9px; top:max(9px,env(safe-area-inset-top)); }
+    .brand{ padding:7px 9px; }
+    .brand small{ display:none; }
+    .brand-mark{ width:31px; height:31px; }
+    .btn .desktop-label{ display:none; }
+    .btn{ padding:8px 10px; min-height:38px; }
+    .toolbar-actions{ gap:5px; padding:5px; }
+    #settingsPanel{ top:70px; right:9px; }
+    #fishTools{ gap:4px; padding:6px; }
+    #fishTools .btn{ padding:7px 9px; }
+    #selectedName{ display:none; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .sun-rays,.caustics,.particle,.bubble,.weed,.fish-flutter{ animation-duration:30s !important; }
+  }
+</style>
+
+<style id="kids-ui-theme">
+:root{
+  --panel:rgba(248,254,255,.94); --panel-border:rgba(255,255,255,.92);
+  --text:#073957; --muted:#4c7890; --accent:#19bfe1; --yellow:#ffd45f;
+  --pink:#ff7896; --green:#55d5a4;
+}
+html,body{
+  color:var(--text);
+  font-family:"Hiragino Maru Gothic ProN","ヒラギノ丸ゴ ProN","Yu Gothic","游ゴシック","Meiryo","Arial Rounded MT Bold",system-ui,sans-serif;
+  font-weight:700; letter-spacing:.025em;
+}
+.glass{
+  color:var(--text); background:var(--panel); border:3px solid var(--panel-border);
+  box-shadow:0 7px 0 rgba(2,76,113,.18),0 18px 38px rgba(0,24,55,.22);
+}
+.brand{padding:8px 15px 8px 9px;border-radius:26px;gap:11px;overflow:hidden}
+.brand-mark{
+  width:47px;height:47px;flex:0 0 47px;border-radius:50%;font-size:0;
+  background:linear-gradient(145deg,#fff6a5,var(--yellow));border:3px solid #fff;
+  box-shadow:0 5px 0 rgba(232,173,37,.56),0 8px 16px rgba(7,57,87,.13)
+}
+.brand-mark svg{width:34px;height:34px;overflow:visible}
+.brand strong{color:#063c5c;font-size:17px;letter-spacing:.08em;text-shadow:0 1px 0 #fff}
+.brand small{color:#47778e;font-size:11px;margin-top:3px}
+.toolbar-actions{padding:7px;gap:7px;border-radius:25px}
+.btn{
+  color:#073957;background:#eaf9fd;border:2px solid rgba(255,255,255,.97);
+  min-height:43px;padding:8px 14px;border-radius:17px;font-weight:800;
+  box-shadow:0 4px 0 rgba(7,93,124,.20),0 7px 12px rgba(0,36,67,.10)
+}
+.btn:hover{background:#f2fcff;transform:translateY(-2px)}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(7,93,124,.20)}
+.btn.primary{color:#594100;background:linear-gradient(180deg,#fff08a,#ffd45f);border-color:#fff9d5;box-shadow:0 5px 0 #e8ad25,0 8px 14px rgba(0,36,67,.12)}
+.btn.pause-btn{color:#06435c;background:linear-gradient(180deg,#a9efff,#68d8ef);box-shadow:0 5px 0 #24aac8}
+.btn.full-btn{color:#064b37;background:linear-gradient(180deg,#b9f5dc,#6dddb4);box-shadow:0 5px 0 #279d76}
+.btn.settings-btn{color:#71334a;background:linear-gradient(180deg,#ffd1dc,#ff9db4);box-shadow:0 5px 0 #d94e70}
+.btn.danger{color:#7a1731;background:linear-gradient(180deg,#ffd5de,#ff98ac);border-color:#fff;box-shadow:0 5px 0 #d84d69}
+.btn.icon{width:auto;min-width:44px;padding:8px 12px}
+.ui-icon{width:21px;height:21px;display:grid;place-items:center;flex:0 0 21px}
+.ui-icon svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+#pauseBtn .icon-play{display:none} body.paused #pauseBtn .icon-pause{display:none} body.paused #pauseBtn .icon-play{display:grid}
+#settingsPanel{top:91px;width:min(360px,calc(100vw - 32px));padding:18px;border-radius:27px}
+#settingsPanel h2{font-size:19px;color:#073e5d;letter-spacing:.07em;margin-bottom:15px}
+#settingsPanel h2::after{content:"";display:block;width:72px;height:5px;margin-top:7px;border-radius:999px;background:linear-gradient(90deg,#ffd45f,#ff7896,#19bfe1)}
+.setting-row{grid-template-columns:110px 1fr 50px;margin:13px 0;padding:10px 11px;border-radius:17px;background:rgba(217,246,252,.68);border:2px solid #fff}
+.setting-row label{color:#225e78;font-size:13px}.setting-row output{color:#07516f;background:#fff;border-radius:10px;padding:4px 5px}
+.settings-note{color:#416f83;background:#fff9df;border:2px dashed rgba(232,173,37,.44);border-radius:17px;padding:12px 13px;line-height:1.75}
+#fishTools{border-radius:25px;padding:8px}#selectedName{color:#245b74}.fish.selected::after{border:3px dashed #ffe66d;border-radius:22px}
+.empty-card{position:relative;overflow:hidden;padding:26px;border-radius:36px;color:#073957;background:rgba(250,254,255,.93);border:4px solid #fff;box-shadow:0 9px 0 rgba(4,91,128,.18),0 24px 55px rgba(0,24,55,.26)}
+.empty-illustration{width:min(280px,75vw);height:auto;display:block;margin:-2px auto 4px;filter:drop-shadow(0 9px 10px rgba(0,56,88,.14));animation:empty-float 3.4s ease-in-out infinite alternate}
+@keyframes empty-float{from{transform:translateY(3px) rotate(-1deg)}to{transform:translateY(-5px) rotate(1deg)}}
+.empty-card h1{font-size:clamp(24px,5vw,38px);margin:2px 0 9px;color:#074463;letter-spacing:.1em}.empty-card h1 span{background:linear-gradient(transparent 66%,rgba(255,212,95,.63) 66%)}
+.empty-card p{color:#3e7188;line-height:1.85;font-size:clamp(12px,2.5vw,15px)}
+.empty-guide{display:inline-block;margin-top:14px;padding:8px 16px;border-radius:999px;color:#5d4304;background:#fff2a3;border:2px solid #fff;box-shadow:0 4px 0 rgba(232,173,37,.48);font-size:13px}
+#dropOverlay{border:5px dashed #fff;border-radius:38px;background:rgba(18,174,208,.88);color:#fff;box-shadow:inset 0 0 0 5px rgba(255,212,95,.7)}
+#dropOverlay span{color:#eaffff}#toast{background:#fff8c7;border:3px solid #fff;color:#5c4308;border-radius:999px;box-shadow:0 5px 0 rgba(223,164,31,.50),0 12px 27px rgba(0,30,58,.20)}
+.busy-card{color:#073957;background:#fff;border:4px solid #fff;border-radius:26px;box-shadow:0 8px 0 rgba(4,91,128,.20),0 18px 36px rgba(0,21,48,.25)}
+@media(max-width:720px){
+  #toolbar{left:8px;right:8px;top:max(8px,env(safe-area-inset-top));gap:6px}
+  .brand{padding:6px 9px 6px 6px;border-radius:22px}.brand-mark{width:39px;height:39px;flex-basis:39px}.brand-mark svg{width:28px;height:28px}.brand strong{font-size:13px;letter-spacing:.04em}.brand small{display:none}
+  .toolbar-actions{gap:5px;padding:5px;border-radius:22px}.btn .desktop-label{display:none}.btn{min-height:39px;padding:7px 9px;border-radius:14px}.btn.icon,.upload-btn{width:39px;min-width:39px;padding:0}.ui-icon{width:19px;height:19px}
+  #settingsPanel{top:72px;right:8px;width:min(350px,calc(100vw - 16px));border-radius:24px}.setting-row{grid-template-columns:94px 1fr 47px}
+  .empty-card{padding:22px 16px 21px;border-radius:30px}.empty-illustration{width:min(245px,72vw)}
+}
+</style>
+
+<style id="ecosystem-events-theme">
+  #eventLayer{
+    position:absolute; inset:0; z-index:15;
+    pointer-events:none; overflow:hidden;
+  }
+  .event-object{
+    position:absolute; z-index:3; pointer-events:auto; cursor:pointer;
+    user-select:none; -webkit-user-select:none;
+    touch-action:manipulation;
+    filter:drop-shadow(0 9px 10px rgba(0,18,37,.34));
+    will-change:transform,opacity;
+  }
+  .event-object::after{
+    content:"クリックで魚を守る";
+    position:absolute; left:50%; bottom:-31px;
+    transform:translateX(-50%);
+    min-width:max-content;
+    padding:5px 9px; border-radius:999px;
+    color:#073957; background:rgba(255,248,199,.94);
+    border:2px solid rgba(255,255,255,.96);
+    box-shadow:0 3px 0 rgba(223,164,31,.45);
+    font-size:10px; font-weight:900;
+    opacity:0; transition:opacity .16s ease;
+  }
+  .event-object:hover::after,
+  .event-object:focus-visible::after{ opacity:1; }
+  .trash-object{
+    width:110px; height:100px;
+    display:grid; place-items:center;
+  }
+  .trash-object img{
+    display:block;
+    width:100%; height:100%;
+    object-fit:contain;
+    pointer-events:none;
+    user-select:none;
+    -webkit-user-drag:none;
+    filter:
+      drop-shadow(0 7px 7px rgba(0,34,51,.28))
+      drop-shadow(0 0 2px rgba(255,255,255,.22));
+  }
+  .trash-object.image-missing{
+    display:grid; place-items:center;
+    padding:8px;
+    border:3px dashed rgba(255,255,255,.85);
+    border-radius:18px;
+    background:rgba(255,248,199,.88);
+    color:#684d0b;
+    text-align:center;
+    font-size:10px;
+    line-height:1.5;
+  }
+  .trash-object.collecting{
+    animation:collect-pop .55s ease forwards;
+    pointer-events:none;
+  }
+  @keyframes collect-pop{
+    0%{ transform:scale(1) rotate(0); opacity:1; }
+    55%{ transform:scale(1.18) rotate(10deg); opacity:1; }
+    100%{ transform:scale(.2) rotate(-20deg); opacity:0; }
+  }
+
+  .fishing-event{
+    position:absolute; z-index:3; top:0; width:96px;
+    pointer-events:auto; cursor:pointer;
+    transform:translateX(-50%);
+  }
+  .fishing-line{
+    position:absolute; left:48px; top:-8px;
+    width:2px; height:var(--line-height,130px);
+    background:linear-gradient(#e8fbff,rgba(197,235,244,.65));
+    box-shadow:0 0 4px rgba(255,255,255,.45);
+  }
+  .fishing-hook{
+    position:absolute; left:23px; top:calc(var(--line-height,130px) - 4px);
+    width:52px; height:72px;
+    filter:drop-shadow(0 6px 7px rgba(0,15,33,.34));
+  }
+  .fishing-hook svg{ width:100%; height:100%; overflow:visible; }
+  .fishing-event::after{
+    content:"釣り糸をクリック";
+    position:absolute; left:48px;
+    top:calc(var(--line-height,130px) + 65px);
+    transform:translateX(-50%);
+    min-width:max-content; padding:5px 9px;
+    border-radius:999px; font-size:10px; font-weight:900;
+    color:#073957; background:rgba(255,248,199,.95);
+    border:2px solid #fff;
+    box-shadow:0 3px 0 rgba(223,164,31,.45);
+    opacity:.82;
+  }
+  .fishing-event.rescuing::after{ content:"魚を逃がしています"; }
+
+  .event-banner{
+    position:fixed; z-index:37; left:50%; top:100px;
+    transform:translate(-50%,-16px) scale(.98);
+    width:min(580px,calc(100vw - 28px));
+    display:flex; flex-direction:column; align-items:center;
+    gap:3px; padding:11px 18px;
+    border-radius:22px;
+    color:#073957; background:rgba(255,255,255,.95);
+    border:3px solid #fff;
+    box-shadow:0 6px 0 rgba(4,91,128,.20),0 16px 35px rgba(0,25,54,.22);
+    opacity:0; pointer-events:none;
+    transition:opacity .25s ease,transform .25s ease;
+    text-align:center;
+  }
+  .event-banner.show{ opacity:1; transform:translate(-50%,0) scale(1); }
+  .event-banner.warning{ background:#fff3bf; box-shadow:0 6px 0 rgba(222,160,30,.42),0 16px 35px rgba(0,25,54,.22); }
+  .event-banner.success{ background:#d8faeb; box-shadow:0 6px 0 rgba(39,157,118,.38),0 16px 35px rgba(0,25,54,.22); }
+  .event-banner.loss{ background:#ffe1e8; box-shadow:0 6px 0 rgba(217,78,112,.36),0 16px 35px rgba(0,25,54,.22); }
+  .event-banner strong{ font-size:15px; letter-spacing:.07em; }
+  .event-banner span{ color:#3d6c81; font-size:12px; line-height:1.55; }
+
+  .ocean-record{
+    position:fixed; z-index:28; left:14px;
+    bottom:max(14px,env(safe-area-inset-bottom));
+    display:flex; flex-direction:column; gap:2px;
+    padding:9px 13px; border-radius:18px;
+    color:#164d66; background:rgba(255,255,255,.82);
+    border:2px solid rgba(255,255,255,.92);
+    box-shadow:0 5px 0 rgba(2,76,113,.14),0 12px 25px rgba(0,20,45,.14);
+    backdrop-filter:blur(12px);
+    font-size:10px; pointer-events:none;
+  }
+  .ocean-record b{ color:#07516f; font-size:14px; }
+  body.controls-hidden .ocean-record{ opacity:.72; }
+  body.controls-hidden .event-banner{ top:18px; }
+
+  .event-settings{
+    margin:15px 0; padding:13px;
+    border-radius:19px; background:#e9fbff;
+    border:2px solid #fff;
+  }
+  .event-settings-head{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; color:#174f69;
+  }
+  .event-settings-head strong{ display:block; font-size:14px; }
+  .event-settings-head small{ display:block; margin-top:2px; color:#6a8795; font-size:10px; }
+  .event-frequency-row{ margin:11px 0 9px; padding:8px 9px; background:rgba(255,255,255,.62); }
+  .event-now-btn{ width:100%; background:#fff5b8; color:#604700; box-shadow:0 4px 0 #dfad35; }
+  .switch{ position:relative; width:54px; height:31px; flex:0 0 54px; }
+  .switch input{ position:absolute; opacity:0; pointer-events:none; }
+  .switch span{
+    position:absolute; inset:0; border-radius:999px;
+    background:#afc6cf; box-shadow:inset 0 2px 5px rgba(0,42,70,.18);
+    cursor:pointer; transition:.18s ease;
+  }
+  .switch span::after{
+    content:""; position:absolute; width:25px; height:25px; left:3px; top:3px;
+    border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,38,66,.25);
+    transition:.18s ease;
+  }
+  .switch input:checked + span{ background:#55d5a4; }
+  .switch input:checked + span::after{ transform:translateX(23px); }
+
+  .fish.event-hooked{ z-index:18 !important; }
+  .fish.event-hooked .fish-flutter{ animation-duration:.35s !important; }
+  .fish.event-sick{
+    z-index:17 !important;
+    transition:filter .35s ease;
+  }
+  .fish.event-sick img{
+    animation:sick-fish 1s ease-in-out infinite alternate !important;
+  }
+  @keyframes sick-fish{
+    from{ filter:grayscale(.35) saturate(.65) opacity(.88); }
+    to{ filter:grayscale(.85) saturate(.25) opacity(.58); }
+  }
+  .fish.event-leaving{
+    transition:opacity 2.2s ease,filter 2.2s ease;
+    opacity:0; filter:grayscale(1) blur(2px);
+  }
+
+  /* 海洋ごみは、JS側で画像ごとの大きさを設定 */
+
+  /* 嵐 */
+  .storm-overlay{
+    position:absolute; inset:0; z-index:1; pointer-events:none;
+    overflow:hidden; opacity:0; animation:storm-arrive 1.2s ease forwards;
+  }
+  .storm-overlay.leaving{ animation:storm-leave 1.5s ease forwards; }
+  @keyframes storm-arrive{ from{opacity:0} to{opacity:1} }
+  @keyframes storm-leave{ from{opacity:1} to{opacity:0} }
+  .storm-dark{
+    position:absolute; inset:0;
+    background:
+      radial-gradient(ellipse at 48% -12%,rgba(119,174,194,.15),transparent 38%),
+      linear-gradient(180deg,rgba(1,18,38,.58),rgba(1,37,64,.34) 52%,rgba(0,15,34,.56));
+    animation:storm-dark-pulse 4.8s ease-in-out infinite alternate;
+  }
+  @keyframes storm-dark-pulse{ from{opacity:.72} to{opacity:1} }
+  .storm-current{
+    position:absolute; inset:-25%; opacity:.28;
+    background:repeating-linear-gradient(112deg,transparent 0 36px,rgba(202,242,250,.18) 38px 41px,transparent 43px 78px);
+    filter:blur(2px);
+    animation:storm-current 1.15s linear infinite;
+  }
+  @keyframes storm-current{
+    from{transform:translate3d(-7%,0,0) skewX(-8deg)}
+    to{transform:translate3d(7%,5%,0) skewX(-8deg)}
+  }
+  .storm-surface{
+    position:absolute; left:-12%; right:-12%; top:-4%; height:26%;
+    background:
+      radial-gradient(ellipse at 20% 0,rgba(218,249,255,.32),transparent 43%),
+      radial-gradient(ellipse at 72% 0,rgba(218,249,255,.25),transparent 40%);
+    filter:blur(7px);
+    animation:storm-surface 1.8s ease-in-out infinite alternate;
+  }
+  @keyframes storm-surface{
+    from{transform:translateX(-3%) scaleY(.86);opacity:.45}
+    to{transform:translateX(3%) scaleY(1.14);opacity:.88}
+  }
+  .storm-flash{
+    position:absolute; inset:0; opacity:0;
+    background:rgba(220,250,255,.70);
+    mix-blend-mode:screen;
+    animation:storm-lightning 6.8s linear infinite;
+  }
+  @keyframes storm-lightning{
+    0%,72%,75%,100%{opacity:0}
+    73%{opacity:.72}
+    74%{opacity:.12}
+    74.5%{opacity:.48}
+  }
+  .storm-status{
+    position:absolute; left:50%; bottom:max(18px,env(safe-area-inset-bottom));
+    transform:translateX(-50%);
+    padding:9px 15px; border-radius:999px;
+    color:#073957; background:rgba(255,248,199,.94);
+    border:3px solid #fff; box-shadow:0 5px 0 rgba(223,164,31,.48),0 12px 24px rgba(0,22,48,.20);
+    font-size:12px; font-weight:900; letter-spacing:.05em;
+  }
+  body.storm-active .sun-rays{ opacity:.10 !important; }
+  body.storm-active .caustics{ opacity:.05 !important; }
+  body.storm-active .water-haze{ filter:brightness(.68) saturate(.8); }
+  body.storm-active #bubbleLayer{ filter:blur(.3px); }
+  body.storm-active #particleLayer{ filter:blur(.5px); }
+  body.storm-active #ocean{ animation:ocean-shake .62s ease-in-out infinite alternate; }
+  @keyframes ocean-shake{
+    from{transform:translate3d(-1px,0,0)}
+    to{transform:translate3d(1px,1px,0)}
+  }
+  .storm-now-btn{
+    width:100%; margin-top:8px; background:#dcecf4; color:#173f58;
+    box-shadow:0 4px 0 #8ba9b8;
+  }
+  .storm-active .event-object::after{ content:"クリックして回収"; }
+
+  @media(max-width:720px){
+    .event-banner{ top:76px; padding:9px 13px; border-radius:18px; }
+    .event-banner strong{ font-size:13px; }
+    .event-banner span{ font-size:10px; }
+    .ocean-record{ left:8px; bottom:max(8px,env(safe-area-inset-bottom)); padding:7px 10px; }
+    .event-object::after,.fishing-event::after{ display:none; }
+  }
+</style>
 </head>
 <body>
-
-    <!-- ゲームメイン -->
-    <div id="game-container">
-        <div class="header">
-            <div class="stage-info">STAGE <span id="stage-num">1</span>/36</div>
-            <div class="life-info">LIFE <span>♥</span> <span id="life-num">720</span></div>
-        </div>
-        <div class="life-bar-container">
-            <div id="life-bar"></div>
-        </div>
-
-        <div id="puzzle-board">
-            <!-- ピースがJSで追加される -->
-        </div>
+<div id="app">
+  <main id="ocean" aria-label="こどもたちが描いた魚の水族館">
+    <div class="sun-rays"></div>
+    <div class="caustics"></div>
+    <div class="water-haze"></div>
+    <div id="particleLayer"></div>
+    <div class="seabed-shadow"></div>
+    <div id="plantLayer"></div>
+    <div id="bubbleLayer"></div>
+    <div id="fishLayer"></div>
+    <div id="eventLayer" aria-live="polite"></div>
+    <div id="eventBanner" class="event-banner" role="status">
+      <strong id="eventTitle">海の出来事</strong>
+      <span id="eventMessage">海の中では、いろいろなことが起こります。</span>
+    </div>
+    <div id="oceanRecord" class="ocean-record" aria-label="海を守った記録">
+      <span><b id="savedCount">0</b> 回 ごみや釣り糸から守った</span>
+      <span><b id="lostCount">0</b> 匹 いなくなった</span>
     </div>
 
-    <!-- スタート画面 -->
-    <div id="start-screen" class="screen">
-        <!-- ロゴ画像 (読み込めない場合は文字を表示) -->
-        <img src="./images/logo.png" alt="S36" style="max-width: 80%; max-height: 180px; margin-bottom: 30px;" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
-        <h1 class="hidden" style="color: var(--primary); font-size: 56px; margin-bottom: 30px; text-align:center; font-family: 'Noto Sans JP', sans-serif; letter-spacing: 4px;">S36</h1>
-        
-        <div class="instruction">
-            36種類の秘貝をすべて見つけよう！
+    <div id="emptyState">
+      <div class="empty-card">
+        <svg class="empty-illustration" viewBox="0 0 420 190" aria-hidden="true">
+  <g opacity=".68" fill="none" stroke="#54d4ee" stroke-width="4">
+    <circle cx="53" cy="42" r="12"/><circle cx="78" cy="22" r="7"/>
+    <circle cx="357" cy="48" r="10"/><circle cx="381" cy="23" r="5"/><circle cx="328" cy="18" r="4"/>
+  </g>
+  <g transform="translate(28 56) rotate(-5 90 45)">
+    <path d="M144 46 181 16v60L144 46Z" fill="#ff7896" stroke="#763c58" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M151 46C128 9 73 3 31 26 17 34 9 42 5 46c4 5 12 13 26 21 42 23 97 17 120-21Z" fill="#41cbe7" stroke="#07516f" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M77 18c10 11 13 21 9 31M77 74c10-10 13-20 9-30" fill="none" stroke="#fff1a0" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="38" cy="38" r="8" fill="#fff"/><circle cx="40" cy="40" r="4" fill="#073957"/>
+    <path d="M8 48c8 5 15 5 22 0" fill="none" stroke="#07516f" stroke-width="5" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(236 35) rotate(6 75 40)">
+    <path d="M121 40 151 17v46L121 40Z" fill="#ffcb4d" stroke="#72570e" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M127 40C108 12 65 7 29 24 17 30 9 36 5 40c4 4 12 10 24 16 36 17 79 12 98-16Z" fill="#ff8aa5" stroke="#71334a" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M66 18c7 8 9 15 7 23M66 62c7-8 9-15 7-22" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="28" cy="34" r="6" fill="#fff"/><circle cx="30" cy="35" r="3" fill="#71334a"/>
+  </g>
+  <path d="M65 164c30-25 51-22 75 0M284 164c31-30 59-28 84 0" fill="none" stroke="#55d5a4" stroke-width="10" stroke-linecap="round"/>
+</svg>
+        <h1><span>おえかき水族館</span></h1>
+        <p>
+          みんなが描いたおさかなを、海の中で泳がせよう。<br>
+          画像は何回でも追加でき、このブラウザに自動で保存されます。
+        </p>
+        <div class="empty-guide">上の「おさかなを追加」からスタート</div>
+      </div>
+    </div>
+  </main>
+
+  <header id="toolbar">
+    <div class="brand glass">
+      <div class="brand-mark"><svg viewBox="0 0 120 80" aria-hidden="true">
+  <path d="M92 40 116 19v42L92 40Z" fill="#ff7896" stroke="#74415a" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M96 40c-12-22-35-30-56-22C24 24 14 34 9 40c5 6 15 16 31 22 21 8 44 0 56-22Z" fill="#35c9e9" stroke="#07516f" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M45 19c5 7 6 14 4 21M45 61c5-7 6-14 4-21" fill="none" stroke="#fff1a8" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="28" cy="34" r="5" fill="#fff"/><circle cx="29" cy="35" r="2.6" fill="#073957"/>
+  <path d="M12 42c6 3 10 3 15 0" fill="none" stroke="#07516f" stroke-width="4" stroke-linecap="round"/>
+</svg></div>
+      <div><strong>おえかき水族館</strong><small><span id="fishCount">0</span>ひきのおさかなが泳いでいます</small></div>
+    </div>
+    <div class="toolbar-actions glass">
+      <label class="btn primary upload-btn" for="fileInput" title="おさかなの画像を追加"><span class="ui-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span><span class="desktop-label">おさかなを追加</span></label>
+      <button class="btn icon pause-btn" id="pauseBtn" title="動きをとめる" aria-label="動きをとめる"><span class="ui-icon icon-pause" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></span><span class="ui-icon icon-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></svg></span><span id="pauseLabel" class="desktop-label">とめる</span></button>
+      <button class="btn icon full-btn" id="fullscreenBtn" title="全画面表示" aria-label="全画面表示"><span class="ui-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5"/></svg></span><span class="desktop-label">全画面</span></button>
+      <button class="btn icon settings-btn" id="settingsBtn" title="設定" aria-label="設定"><span class="ui-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l-2-.7-.7-1.7.9-1.9-2.1-2.1-1.9.9-1.7-.7-.7-2h-3l-.7 2-1.7.7-1.9-.9-2.1 2.1.9 1.9-.7 1.7-2 .7v3l2 .7.7 1.7-.9 1.9 2.1 2.1 1.9-.9 1.7.7.7 2h3l.7-2 1.7-.7 1.9.9 2.1-2.1-.9-1.9.7-1.7 2-.7Z"/></svg></span><span class="desktop-label">せってい</span></button>
+    </div>
+  </header>
+
+  <section id="settingsPanel" class="glass" aria-label="水族館の設定">
+    <h2>水族館のせってい</h2>
+    <div class="setting-row">
+      <label for="speedRange">およぐ はやさ</label>
+      <input id="speedRange" type="range" min="0.25" max="2.2" step="0.05" value="1">
+      <output id="speedOut">1.00×</output>
+    </div>
+    <div class="setting-row">
+      <label for="sizeRange">おさかなの大きさ</label>
+      <input id="sizeRange" type="range" min="0.55" max="1.8" step="0.05" value="1">
+      <output id="sizeOut">1.00×</output>
+    </div>
+    <div class="setting-row">
+      <label for="bubbleRange">あわの りょう</label>
+      <input id="bubbleRange" type="range" min="10" max="80" step="5" value="40">
+      <output id="bubbleOut">40</output>
+    </div>
+    <div class="event-settings">
+      <div class="event-settings-head">
+        <div>
+          <strong>海の出来事</strong>
+          <small>魚がいなくなることがあります</small>
         </div>
-        <button id="btn-start" class="btn">ゲームスタート</button>
+        <label class="switch" aria-label="海の出来事をオン・オフ">
+          <input id="eventToggle" type="checkbox" checked>
+          <span></span>
+        </label>
+      </div>
+      <div class="setting-row event-frequency-row">
+        <label for="eventRange">起こる間隔</label>
+        <input id="eventRange" type="range" min="10" max="90" step="5" value="40">
+        <output id="eventOut">40秒</output>
+      </div>
+      <button class="btn event-now-btn" id="eventNowBtn" type="button">今すぐ出来事を起こす</button>
+      <button class="btn storm-now-btn" id="stormNowBtn" type="button">今すぐ嵐を起こす</button>
     </div>
-
-    <!-- リザルト（和歌表示）画面 -->
-    <div id="result-screen" class="screen hidden">
-        <div id="result-title">STAGE CLEAR!</div>
-        <div id="result-time" style="font-weight: bold; color: var(--primary);">Clear Time: 12秒</div>
-        <div id="bonus-msg" class="bonus-text"></div>
-        
-        <div id="result-img" class="result-image" style="background-image: url(''); background-size: cover;"></div>
-        
-        <div class="waka-box">
-            <div id="result-name" style="font-weight: bold; color: var(--primary); margin-bottom: 5px; font-size:14px;">すだれ貝 (サツマアカガイ)</div>
-            <div id="result-poem" class="waka-poem">なみかかる　吹上の濱の　すだれ貝<br>風もぞおろす　いそぎひろはん</div>
-            <div class="waka-info">出典: <span id="result-source">山下集</span> / 詠み人: <span id="result-author">西行法師</span></div>
-        </div>
-
-        <button id="btn-next" class="btn">Next Stage</button>
+    <div class="settings-note">
+      おさかなをクリックすると、大きさ・向き・数を変えたり、削除したりできます。<br>
+      海洋ごみや釣り糸は、クリックすると魚を守れます。出来事は最短10秒間隔に設定できます。<br>
+      キーボード：U＝追加、F＝全画面、Space＝一時停止、H＝操作を隠す
     </div>
-
-    <!-- クイズ画面 -->
-    <div id="quiz-screen" class="screen hidden">
-        <h2>ボーナスクイズ！</h2>
-        <div id="quiz-question">「すだれ貝」はどれ？</div>
-        <div class="quiz-options" id="quiz-options">
-            <!-- 選択肢が挿入される -->
-        </div>
-        <div id="quiz-result-msg"></div>
-        <button id="btn-quiz-next" class="btn hidden" style="margin-top: 10px;">次へ進む</button>
+    <div class="settings-buttons">
+      <button class="btn" id="hideControlsBtn">展示モードにする</button>
+      <button class="btn danger" id="clearBtn">おさかなを全部けす</button>
     </div>
+  </section>
 
-    <!-- 最終クリア画面 -->
-    <div id="all-clear-screen" class="screen hidden">
-        <h1 style="color: #E91E63; font-size: 44px; margin-bottom: 10px;">ALL CLEAR!!</h1>
-        <p style="font-size: 18px; margin-bottom: 30px; color: var(--primary); font-weight:bold;">36種の歌仙貝をすべて集めました！</p>
-        <div style="font-size: 20px; font-weight: bold; color:#555;">最終スコア (残りライフ)</div>
-        <div id="final-score" style="font-size: 64px; color: #d32f2f; font-weight: bold; margin: 10px 0 30px;">720</div>
-        <button class="btn" onclick="location.reload()">もう一度遊ぶ</button>
-    </div>
+  <div id="fishTools" class="glass">
+    <span id="selectedName">えらんだ おさかな</span>
+    <button class="btn icon" id="smallerBtn" title="小さくする">小</button>
+    <button class="btn icon" id="largerBtn" title="大きくする">大</button>
+    <button class="btn" id="flipBtn" title="画像の元の向きを反転"><span class="desktop-label">むきをかえる</span></button>
+    <button class="btn" id="cloneBtn" title="同じ魚を複製"><span class="desktop-label">もう1ぴき</span></button>
+    <button class="btn danger" id="deleteBtn" title="この魚を削除"><span class="desktop-label">けす</span></button>
+  </div>
 
-    <!-- ゲームオーバー画面 -->
-    <div id="game-over-screen" class="screen hidden">
-        <h1 style="color: var(--primary); font-size: 40px;">GAME OVER</h1>
-        <p style="color: #555; font-weight:bold;">ライフが0になってしまいました...</p>
-        <div style="font-size: 20px; margin-top: 20px; color: #555;">到達ステージ: <span id="go-stage" style="font-weight:bold; color:#E91E63; font-size:24px;"></span></div>
-        <button class="btn" onclick="location.reload()" style="margin-top: 40px;">最初からやり直す</button>
-    </div>
+  <button id="showControls" class="btn glass">操作を表示する</button>
 
-    <script>
-        // ==========================================
-        // データ定義
-        // ==========================================
-        const shellData = [
-            { no: 1, kasenName: 'すだれ貝', name: 'サツマアカガイ', source: '山下集', author: '西行法師', poem: 'なみかかる　吹上の濱の　すだれ貝<br>風もぞおろす　いそぎひろはん' },
-            { no: 2, kasenName: '忘れ貝', name: 'マツヤマワスレ', source: '夫木抄', author: '順徳院', poem: 'みつのはま　いそこす波の　わすれ貝<br>わすれずみする　松かねの声' },
-            { no: 3, kasenName: '梅の花貝', name: 'ヤヘウメ', source: '新後拾遺集', author: '俊頼', poem: '春風に　波やおりけん　みちのくの<br>まがきがしまの　梅のはな貝' },
-            { no: 4, kasenName: '花貝', name: 'チヨノハナガイ', source: '夫木抄', author: '読人不知', poem: 'えだながら　うづまく波の　おらねばや<br>ちりぢりよする　ちよのはながい' },
-            { no: 5, kasenName: 'さくら貝', name: 'サクラガイ', source: '拾遺愚草', author: '定家', poem: '伊勢のうみ　なみの玉よる　さくらがい<br>かひあるうらの　はなの色かな' },
-            { no: 6, kasenName: 'ますほ貝', name: 'ベニガイ', source: '山家集', author: '西行法師', poem: 'しほそむる　ますうの小貝　拾ふとて<br>いろのはまとは　いふにやあるらん' },
-            { no: 7, kasenName: '紫貝', name: 'フジナミガイ', source: '夫木抄', author: '読人不知', poem: 'むらさきの　貝よるうらの　ふじがたは<br>なみのかへるぞ　はなと見へける' },
-            { no: 8, kasenName: '白貝', name: 'カガミガイ', source: '名寄', author: '読人不知', poem: 'はるばると　しららのはまの　しら貝は<br>なつさえふれる　雪かとぞ見る' },
-            { no: 9, kasenName: 'なでしこ貝', name: 'チリボタン', source: '夫木抄', author: '西行法師', poem: 'ちりほしむ　なでしこ貝に　しくいろは<br>やまとからにも　あらじとぞ思ふ' },
-            { no: 10, kasenName: '波間柏貝', name: 'ナミハガシハ', source: '', author: '定塚', poem: '難波女が　なみまがしわを　とるほどに<br>日もくれ袖に　月ぞやどれる' },
-            { no: 11, kasenName: 'きぬた貝', name: 'キヌタアゲマキ', source: '', author: '作者不詳', poem: '契りおきし　衣のうらの　あきふけて<br>うてぬきぬたの　かひもなかりき' },
-            { no: 12, kasenName: '枕貝', name: 'オキナガイ', source: '和訓栞', author: '大江広重', poem: 'ふねとむる　磯のなみぢの　まくらがい<br>かいある夢に　あわざらめやは' },
-            { no: 13, kasenName: 'にしき貝', name: 'ナデシコガイ', source: '', author: '三条院', poem: 'こきまぜに　色をつくして　よる貝は<br>にしきの浦と　みゆるなりけり' },
-            { no: 14, kasenName: 'いろ貝', name: 'ヒバリガイ', source: '末木抄', author: '読人不知', poem: 'いろいろの　かいありてこそ　ひろはめれ<br>ちくさの浜の　あまがまにまに' },
-            { no: 15, kasenName: 'ほら貝', name: 'オウウヤウラク等', source: '夫木抄', author: '寂蓮法', poem: '山ぶしの　ほらふく峰の　夕ぐれに<br>そこともしらめ　すずの上風' },
-            { no: 16, kasenName: '都貝', name: 'マツムシ', source: '夫木抄', author: '伎女河菰', poem: 'ともすれば　こひしきかたの　名におへる<br>みやこの貝をぞ　まづひろいぬる' },
-            { no: 17, kasenName: 'うらうづ貝', name: 'ウラウツガイ', source: '夫木抄', author: '敦忠', poem: '田鶴さわぐ　あしのもとはを　かきわけて<br>うらうづ貝を　ひろいつるかな' },
-            { no: 18, kasenName: 'さたべ貝', name: 'サザエ', source: '山家集', author: '西行法師', poem: 'さたべすむ　せとのいわつぼ　求出て<br>いそしきあまの　けしきなるかな' },
-            { no: 19, kasenName: '千鳥貝', name: 'スズキガイ', source: '新古今集', author: '後白河院', poem: 'はまちどり　ふみおくあとの　つもりなば<br>かひあるうらに　あわざらめやは' },
-            { no: 20, kasenName: '雀貝', name: 'キクスズメ', source: '夫木抄', author: '大江広重', poem: '波よする　竹のとまりの　すずめ貝<br>うれしき世にも　あひにけるかな' },
-            { no: 21, kasenName: 'いたや貝', name: 'イタヤガイ', source: '新撰六帖', author: '信実', poem: 'あやしくも　うらめづらしき　いたや貝<br>とまふくあまの　ならひならずや' },
-            { no: 22, kasenName: 'あこや貝', name: 'カキ', source: '山家集', author: '西行法師', poem: 'あやことる　ゐ貝のからを　つみおきて<br>たからのあとを　見するなりけり' },
-            { no: 23, kasenName: 'あわび貝', name: 'アワビノトコブシ', source: '浦錦', author: '千首牡丹花', poem: 'なべて世の　こひ路にいかで　うつしけん<br>あわびのかいの　おのがおもひを' },
-            { no: 24, kasenName: 'かたし貝', name: 'ユキノカサ', source: '後花園院宸百首', author: '不明', poem: '我袖は　いつかひかたの　かたし貝<br>あふてふことも　なみにしほれて' },
-            { no: 25, kasenName: 'うつせ貝', name: 'キセワタ', source: '続後撰集', author: '好忠', poem: 'なみのうつ　みしまのうらの　うつせがい<br>むなしきからに　われやなるなん' },
-            { no: 26, kasenName: 'みなし貝', name: 'アカテツボ', source: '末木抄', author: '光台院入道', poem: 'かみ島の　いそまのうらに　よる貝の<br>身はいたづらに　なりはてぬはた' },
-            { no: 27, kasenName: 'あさり貝', name: 'ヒメアサリ', source: '新撰六帖', author: '光俊', poem: 'いせのうらの　しほひにあさり　もとめたる<br>かいをそたもつ　身をばすてつつ' },
-            { no: 28, kasenName: 'しお貝', name: 'フジノハナガイ', source: '', author: '師兼', poem: 'いせのうみの　うらのしほがい　ひらひてふ<br>あまちに袖の　ぬれてかわかぬ' },
-            { no: 29, kasenName: 'ものあい貝', name: 'モノアラガイ', source: '続松葉集', author: '宗恵', poem: 'たのもしな　ものあら貝の　つきぬべき<br>法の蓮の　うらにすむ身は' },
-            { no: 30, kasenName: 'かたつ貝', name: 'ネコガイ', source: '海道記', author: '源光行', poem: 'たのみつる　人はなぎさの　かたつがい<br>あわぬにつけて　身をぞうらむる' },
-            { no: 31, kasenName: 'あし貝', name: 'バカガイ', source: '浦錦', author: '津守国冬', poem: '海ばらや　なみにゆらゆゆ　あし貝の<br>かひある国と　なれるかしこさ' },
-            { no: 32, kasenName: 'みぞ貝', name: 'ミゾガイ', source: '夫木抄', author: '俊頼', poem: '江の浜に　みぞ貝ひろう　うない子が<br>たわぶれにたに　とふ人もなし' },
-            { no: 33, kasenName: '蛤貝', name: 'ハマグリ', source: '山家集', author: '西行法師', poem: '今ぞしる　ふたみのうらの　はまぐりを<br>貝あわせとぞ　おもふなりけり' },
-            { no: 34, kasenName: 'しじみ貝', name: 'シジミ', source: '', author: '為尹卿', poem: 'しじみとる　かたたのうらの　あま人よ<br>こまかにいはば　かいぞ有べき' },
-            { no: 35, kasenName: '小貝', name: 'ツノガイ等', source: '夫木抄', author: '源師光', poem: 'いせのうみ　きよきなぎさに　駒とめて<br>都のつとに　小がいひろはん' },
-            { no: 36, kasenName: '千種貝', name: 'チグサガイ', source: '夫木抄', author: '読人不知', poem: '君が代の　ためしと見ゆる　長はまに<br>千種のかいの　かずもつきせじ' }
-        ];
+  <input id="fileInput" type="file" accept="image/png,image/webp,image/jpeg" multiple hidden>
 
-        // ==========================================
-        // ゲーム状態と変数
-        // ==========================================
-        const MAX_STAGE = 36;
-        const INITIAL_LIFE = 720;
-        const EMPTY_INDEX = 8; // ★右下(x:2, y:2) を空きマスとする
-        
-        let currentStage = 1;
-        let totalLife = INITIAL_LIFE;
-        let timerInterval = null;
-        let timeInCurrentStage = 0;
-        let isPlaying = false;
-        
-        // パズルの盤面 (0〜8。EMPTY_INDEXの場所がnull)
-        let board = [];
-        let currentImageUrl = '';
-        let missingPieceElement = null; // クリア時にはめるためのピース
+  <div id="dropOverlay">
+    <div><strong>ここにおさかなの画像をドロップ</strong><span>PNG・WebP・JPEG／複数枚対応</span></div>
+  </div>
 
-        const DOM = {
-            stageNum: document.getElementById('stage-num'),
-            lifeNum: document.getElementById('life-num'),
-            lifeBar: document.getElementById('life-bar'),
-            board: document.getElementById('puzzle-board'),
-            startScreen: document.getElementById('start-screen'),
-            resultScreen: document.getElementById('result-screen'),
-            quizScreen: document.getElementById('quiz-screen'),
-            allClearScreen: document.getElementById('all-clear-screen'),
-            gameOverScreen: document.getElementById('game-over-screen'),
-            btnStart: document.getElementById('btn-start'),
-            btnNext: document.getElementById('btn-next'),
-            btnQuizNext: document.getElementById('btn-quiz-next')
+  <div id="toast" role="status"></div>
+
+  <div id="busy">
+    <div class="busy-card"><div class="spinner"></div><span id="busyText">おさかなを海へ放しています…</span></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (s) => document.querySelector(s);
+  const fishLayer = $("#fishLayer");
+  const emptyState = $("#emptyState");
+  const fishCount = $("#fishCount");
+  const fileInput = $("#fileInput");
+  const ocean = $("#ocean");
+  const settingsPanel = $("#settingsPanel");
+  const fishTools = $("#fishTools");
+  const selectedName = $("#selectedName");
+  const toastEl = $("#toast");
+  const busy = $("#busy");
+  const busyText = $("#busyText");
+  const dropOverlay = $("#dropOverlay");
+  const eventLayer = $("#eventLayer");
+  const eventBanner = $("#eventBanner");
+  const eventTitle = $("#eventTitle");
+  const eventMessage = $("#eventMessage");
+  const savedCountEl = $("#savedCount");
+  const lostCountEl = $("#lostCount");
+
+  const DB_NAME = "kids-ocean-gallery";
+  const DB_VERSION = 1;
+  const STORE = "fish";
+  const MAX_UPLOAD_EDGE = 1600;
+  const OUTPUT_EDGE = 1100;
+  const ALPHA_THRESHOLD = 8;
+
+  let db = null;
+  let paused = false;
+  let selectedId = null;
+  let lastTime = performance.now();
+  let rafId = 0;
+  let toastTimer = 0;
+  let dragCounter = 0;
+  let globalSpeed = Number(localStorage.getItem("ocean-speed") || 1);
+  let globalSize = Number(localStorage.getItem("ocean-size") || 1);
+  let bubbleCount = Number(localStorage.getItem("ocean-bubbles") || 40);
+  let eventsEnabled = localStorage.getItem("ocean-events-enabled") !== "false";
+  let eventInterval = Math.max(10,Math.min(90,Number(localStorage.getItem("ocean-event-interval") || 40) || 40));
+  let savedCount = Number(localStorage.getItem("ocean-saved-count") || 0);
+  let lostCount = Number(localStorage.getItem("ocean-lost-count") || 0);
+  let activeEvent = null;
+  let nextEventAt = 0;
+  let nextStormAt = 0;
+  let eventBannerTimer = 0;
+
+  const fishes = new Map();
+
+  const uid = () => crypto.randomUUID ? crypto.randomUUID() :
+    `fish-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  const clamp = (v,min,max) => Math.max(min,Math.min(max,v));
+  const rand = (min,max) => min + Math.random() * (max-min);
+
+  function toast(message){
+    clearTimeout(toastTimer);
+    toastEl.textContent = message;
+    toastEl.classList.add("show");
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2400);
+  }
+
+  function setBusy(on,text="おさかなを海へ放しています…"){
+    busyText.textContent = text;
+    busy.classList.toggle("show",on);
+  }
+
+  function openDatabase(){
+    return new Promise((resolve,reject) => {
+      const req = indexedDB.open(DB_NAME,DB_VERSION);
+      req.onupgradeneeded = () => {
+        const database = req.result;
+        if(!database.objectStoreNames.contains(STORE)){
+          database.createObjectStore(STORE,{keyPath:"id"});
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  function dbRequest(mode,action){
+    return new Promise((resolve,reject) => {
+      const tx = db.transaction(STORE,mode);
+      const store = tx.objectStore(STORE);
+      const req = action(store);
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  const dbPut = (value) => dbRequest("readwrite",s => s.put(value));
+  const dbDelete = (id) => dbRequest("readwrite",s => s.delete(id));
+  const dbGetAll = () => dbRequest("readonly",s => s.getAll());
+  const dbClear = () => dbRequest("readwrite",s => s.clear());
+
+  function createParticles(){
+    const layer = $("#particleLayer");
+    layer.innerHTML = "";
+    for(let i=0;i<70;i++){
+      const p = document.createElement("i");
+      p.className = "particle";
+      p.style.left = `${rand(0,100)}%`;
+      p.style.top = `${rand(4,96)}%`;
+      p.style.setProperty("--dur",`${rand(4,11)}s`);
+      p.style.setProperty("--dx",`${rand(-24,24)}px`);
+      p.style.setProperty("--dy",`${rand(-22,22)}px`);
+      p.style.animationDelay = `${rand(-10,0)}s`;
+      const size = rand(.8,2.6);
+      p.style.width = p.style.height = `${size}px`;
+      layer.appendChild(p);
+    }
+  }
+
+  function createBubbles(count=bubbleCount){
+    const layer = $("#bubbleLayer");
+    layer.innerHTML = "";
+    for(let i=0;i<count;i++){
+      const b = document.createElement("i");
+      b.className = "bubble";
+      const size = rand(4,25);
+      b.style.left = `${rand(1,99)}%`;
+      b.style.setProperty("--s",`${size}px`);
+      b.style.setProperty("--dur",`${rand(8,19)}s`);
+      b.style.setProperty("--delay",`${rand(-20,0)}s`);
+      b.style.setProperty("--sway",`${rand(-50,50)}px`);
+      layer.appendChild(b);
+    }
+  }
+
+  function createPlants(){
+    const layer = $("#plantLayer");
+    layer.innerHTML = "";
+
+    const weedCount = Math.round(clamp(innerWidth/85,12,25));
+    for(let i=0;i<weedCount;i++){
+      const weed = document.createElement("div");
+      weed.className = "weed";
+      weed.innerHTML = "<span></span>";
+      const depth = rand(.45,1.05);
+      weed.style.left = `${rand(-2,98)}%`;
+      weed.style.setProperty("--h",`${rand(10,27)*depth}vh`);
+      weed.style.setProperty("--w",`${rand(5,10)}px`);
+      weed.style.setProperty("--dur",`${rand(3.5,7.5)}s`);
+      weed.style.setProperty("--opacity",`${.34 + depth*.5}`);
+      weed.style.setProperty("--blur",`${depth < .62 ? .8 : 0}px`);
+      weed.style.animationDelay = `${rand(-6,0)}s`;
+      weed.style.zIndex = String(Math.round(depth*10));
+      layer.appendChild(weed);
+    }
+
+    const rocks = Math.round(clamp(innerWidth/330,3,7));
+    for(let i=0;i<rocks;i++){
+      const rock = document.createElement("div");
+      rock.className = "rock";
+      const depth = rand(.55,1.15);
+      rock.style.left = `${rand(-3,94)}%`;
+      rock.style.setProperty("--w",`${rand(75,180)*depth}px`);
+      rock.style.setProperty("--h",`${rand(34,82)*depth}px`);
+      rock.style.setProperty("--opacity",`${.38 + depth*.38}`);
+      rock.style.setProperty("--blur",`${depth < .65 ? .7 : 0}px`);
+      rock.style.zIndex = String(Math.round(depth*10));
+      layer.appendChild(rock);
+    }
+  }
+
+  async function blobToImage(blob){
+    const url = URL.createObjectURL(blob);
+    try{
+      const img = new Image();
+      img.decoding = "async";
+      img.src = url;
+      await img.decode();
+      return img;
+    } finally {
+      // decode後も描画時までは参照されるため、呼び出し元で即時描画する
+      setTimeout(() => URL.revokeObjectURL(url),0);
+    }
+  }
+
+  function canvasToBlob(canvas,type,quality){
+    return new Promise(resolve => {
+      canvas.toBlob(blob => resolve(blob),type,quality);
+    });
+  }
+
+  async function optimizeImage(file){
+    const sourceUrl = URL.createObjectURL(file);
+    try{
+      const img = new Image();
+      img.decoding = "async";
+      img.src = sourceUrl;
+      await img.decode();
+
+      const firstScale = Math.min(1,MAX_UPLOAD_EDGE/Math.max(img.naturalWidth,img.naturalHeight));
+      const sw = Math.max(1,Math.round(img.naturalWidth*firstScale));
+      const sh = Math.max(1,Math.round(img.naturalHeight*firstScale));
+
+      const stage = document.createElement("canvas");
+      stage.width = sw; stage.height = sh;
+      const sctx = stage.getContext("2d",{willReadFrequently:true});
+      sctx.clearRect(0,0,sw,sh);
+      sctx.drawImage(img,0,0,sw,sh);
+
+      let minX=sw, minY=sh, maxX=-1, maxY=-1;
+      const data = sctx.getImageData(0,0,sw,sh).data;
+      for(let y=0;y<sh;y++){
+        for(let x=0;x<sw;x++){
+          const a = data[(y*sw+x)*4+3];
+          if(a>ALPHA_THRESHOLD){
+            if(x<minX) minX=x;
+            if(y<minY) minY=y;
+            if(x>maxX) maxX=x;
+            if(y>maxY) maxY=y;
+          }
+        }
+      }
+
+      if(maxX<0){
+        throw new Error("画像の中に表示できる部分がありません");
+      }
+
+      const pad = Math.round(Math.max(sw,sh)*.018);
+      minX = clamp(minX-pad,0,sw-1);
+      minY = clamp(minY-pad,0,sh-1);
+      maxX = clamp(maxX+pad,0,sw-1);
+      maxY = clamp(maxY+pad,0,sh-1);
+
+      const cropW = maxX-minX+1;
+      const cropH = maxY-minY+1;
+      const outScale = Math.min(1,OUTPUT_EDGE/Math.max(cropW,cropH));
+      const ow = Math.max(1,Math.round(cropW*outScale));
+      const oh = Math.max(1,Math.round(cropH*outScale));
+
+      const out = document.createElement("canvas");
+      out.width=ow; out.height=oh;
+      const octx = out.getContext("2d");
+      octx.imageSmoothingEnabled = true;
+      octx.imageSmoothingQuality = "high";
+      octx.drawImage(stage,minX,minY,cropW,cropH,0,0,ow,oh);
+
+      let blob = await canvasToBlob(out,"image/webp",.92);
+      if(!blob) blob = await canvasToBlob(out,"image/png");
+      if(!blob) throw new Error("画像を変換できませんでした");
+
+      return {blob,width:ow,height:oh};
+    } finally {
+      URL.revokeObjectURL(sourceUrl);
+    }
+  }
+
+  function spawnMotion(record){
+    const viewW = innerWidth;
+    const viewH = innerHeight;
+    const depth = rand(.58,1.23);
+    const nominal = clamp(Math.min(viewW,viewH)*.18,105,240);
+    const width = nominal * depth * (record.sizeScale || 1);
+    const dir = Math.random()>.5 ? 1 : -1;
+
+    return {
+      x: rand(width*.45,Math.max(width*.46,viewW-width*.45)),
+      baseY: rand(viewH*.10,viewH*.78),
+      direction:dir,
+      depth,
+      speed:rand(24,58)*(1.32-depth*.28),
+      waveAmp:rand(8,28)*(1.25-depth*.18),
+      waveFreq:rand(.55,1.12),
+      phase:rand(0,Math.PI*2),
+      turnEase:1,
+      width,
+      anglePhase:rand(0,Math.PI*2),
+      flutter:rand(1.0,1.9)
+    };
+  }
+
+  function createFishElement(record){
+    const motion = spawnMotion(record);
+
+    const el = document.createElement("div");
+    el.className = `fish ${motion.depth<.76?"depth-far":motion.depth>1.04?"depth-near":""}`;
+    el.dataset.id = record.id;
+    el.style.setProperty("--fish-width",`${motion.width*globalSize}px`);
+
+    const turn = document.createElement("div");
+    turn.className = "fish-motion";
+
+    const flutter = document.createElement("div");
+    flutter.className = "fish-flutter";
+    flutter.style.setProperty("--flutter-duration",`${motion.flutter}s`);
+    flutter.style.animationDelay = `${rand(-2,0)}s`;
+
+    const img = document.createElement("img");
+    const url = URL.createObjectURL(record.blob);
+    img.src = url;
+    img.alt = record.name || "描いた魚";
+    img.onload = () => URL.revokeObjectURL(url);
+
+    flutter.appendChild(img);
+    turn.appendChild(flutter);
+    el.appendChild(turn);
+    fishLayer.appendChild(el);
+
+    const fish = {record,el,turn,flutter,...motion};
+    fishes.set(record.id,fish);
+
+    el.addEventListener("click",(event) => {
+      event.stopPropagation();
+      selectFish(record.id);
+    });
+
+    updateCount();
+    return fish;
+  }
+
+  function updateCount(){
+    fishCount.textContent = String(fishes.size);
+    emptyState.classList.toggle("hidden",fishes.size>0);
+  }
+
+  function selectFish(id){
+    if(selectedId && fishes.has(selectedId)){
+      fishes.get(selectedId).el.classList.remove("selected");
+    }
+    selectedId = id && fishes.has(id) ? id : null;
+    if(selectedId){
+      const fish = fishes.get(selectedId);
+      fish.el.classList.add("selected");
+      selectedName.textContent = fish.record.name || "選択中の魚";
+      fishTools.classList.add("open");
+    }else{
+      fishTools.classList.remove("open");
+    }
+  }
+
+  async function updateRecord(fish){
+    if(fish?.record?.builtIn || !db) return;
+    try{ await dbPut(fish.record); }
+    catch(err){ console.error(err); }
+  }
+
+  async function safeDeleteRecord(fish){
+    if(!fish || fish.record?.builtIn || !db) return;
+    try{ await dbDelete(fish.record.id); }
+    catch(err){ console.error(err); }
+  }
+
+  async function addFiles(files){
+    const imageFiles = [...files].filter(f => /^image\/(png|webp|jpeg)$/.test(f.type));
+    if(!imageFiles.length){
+      toast("PNG・WebP・JPEG画像を選んでください");
+      return;
+    }
+
+    setBusy(true,`${imageFiles.length}枚のおさかなを海へ放しています…`);
+    let added = 0;
+    for(const file of imageFiles){
+      try{
+        const optimized = await optimizeImage(file);
+        const record = {
+          id:uid(),
+          name:file.name.replace(/\.[^.]+$/,""),
+          blob:optimized.blob,
+          width:optimized.width,
+          height:optimized.height,
+          baseFacing:1,
+          sizeScale:1,
+          createdAt:Date.now()
         };
+        await dbPut(record);
+        createFishElement(record);
+        added++;
+      }catch(err){
+        console.error(err);
+        toast(`${file.name}を読み込めませんでした`);
+      }
+    }
+    setBusy(false);
+    if(added) toast(`${added}匹の魚が仲間入りしました`);
+    fileInput.value = "";
+  }
 
-        // ==========================================
-        // 画像フォールバック生成
-        // ==========================================
-        function getImageUrl(no, kasenName, callback) {
-            const url = `./images/${no}.png`;
-            const img = new Image();
-            img.onload = () => callback(url);
-            img.onerror = () => {
-                // 画像がない場合はCanvasで和風の代替画像を生成
-                const canvas = document.createElement('canvas');
-                canvas.width = 300; canvas.height = 300;
-                const ctx = canvas.getContext('2d');
-                
-                // 背景グラデーション
-                const grad = ctx.createLinearGradient(0, 0, 300, 300);
-                grad.addColorStop(0, '#fdfbfb');
-                grad.addColorStop(1, '#ebedee');
-                ctx.fillStyle = grad;
-                ctx.fillRect(0, 0, 300, 300);
-                
-                // 模様（波のような円）
-                ctx.strokeStyle = 'rgba(26, 35, 126, 0.1)';
-                ctx.lineWidth = 4;
-                for(let i=0; i<5; i++) {
-                    ctx.beginPath();
-                    ctx.arc(150, 150, 40 + i*30, 0, Math.PI*2);
-                    ctx.stroke();
-                }
+  async function cloneSelected(){
+    const fish = fishes.get(selectedId);
+    if(!fish) return;
+    const cloned = {
+      ...fish.record,
+      id:uid(),
+      name:`${fish.record.name || "魚"} のコピー`,
+      createdAt:Date.now()
+    };
+    await dbPut(cloned);
+    const newFish = createFishElement(cloned);
+    newFish.x = clamp(fish.x + rand(-70,70),40,innerWidth-40);
+    newFish.baseY = clamp(fish.baseY + rand(-55,55),50,innerHeight*.82);
+    selectFish(cloned.id);
+    toast("同じ魚をもう1匹追加しました");
+  }
 
-                // テキスト
-                ctx.fillStyle = '#1A237E';
-                ctx.font = 'bold 36px "Noto Serif JP", serif';
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                ctx.fillText(kasenName, 150, 140);
-                ctx.font = '16px "Noto Sans JP", sans-serif';
-                ctx.fillStyle = '#666';
-                ctx.fillText(`No.${no}`, 150, 180);
-                
-                callback(canvas.toDataURL());
-            };
-            img.src = url;
+  async function removeSelected(){
+    if(!selectedId) return;
+    const fish = fishes.get(selectedId);
+    if(!fish) return;
+    fish.el.remove();
+    fishes.delete(selectedId);
+    await safeDeleteRecord(fish);
+    selectFish(null);
+    updateCount();
+    toast("おさかなを海から削除しました");
+  }
+
+  async function clearAllFish(){
+    const userFish = [...fishes.values()].filter(f => !f.record.builtIn);
+    if(!userFish.length){
+      toast("追加したおさかなはまだいません");
+      return;
+    }
+    const ok = confirm(`追加した${userFish.length}匹のおさかなをすべて削除しますか？`);
+    if(!ok) return;
+    userFish.forEach(f => { f.el.remove(); fishes.delete(f.record.id); });
+    if(db) await dbClear();
+    selectFish(null);
+    updateCount();
+    toast("追加したおさかなをすべて削除しました");
+  }
+
+  function resizeSelected(multiplier){
+    const fish = fishes.get(selectedId);
+    if(!fish) return;
+    fish.record.sizeScale = clamp((fish.record.sizeScale || 1)*multiplier,.35,3);
+    fish.width = clamp(fish.width*multiplier,55,480);
+    fish.el.style.setProperty("--fish-width",`${fish.width*globalSize}px`);
+    updateRecord(fish);
+  }
+
+  function flipSelected(){
+    const fish = fishes.get(selectedId);
+    if(!fish) return;
+    fish.record.baseFacing = (fish.record.baseFacing || 1)*-1;
+    updateRecord(fish);
+    toast("魚の元の向きを反転しました");
+  }
+
+
+  function starterFishSvg(body,tail,stripe,accent){
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 140">
+      <defs>
+        <linearGradient id="b" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".72"/>
+          <stop offset=".2" stop-color="${body}"/>
+          <stop offset="1" stop-color="${accent}"/>
+        </linearGradient>
+      </defs>
+      <path d="M177 70 230 25v90l-53-45Z" fill="${tail}" stroke="#103f59" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M184 70c-25-48-83-63-133-37C28 45 14 61 8 70c6 9 20 25 43 37 50 26 108 11 133-37Z" fill="url(#b)" stroke="#103f59" stroke-width="7" stroke-linejoin="round"/>
+      <path d="M103 27c17 18 20 37 12 55M103 113c17-18 20-37 12-55" fill="none" stroke="${stripe}" stroke-width="17" stroke-linecap="round" opacity=".95"/>
+      <path d="M143 39c13 12 16 26 9 43M143 101c13-12 16-26 9-43" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" opacity=".78"/>
+      <circle cx="54" cy="57" r="13" fill="#fff"/>
+      <circle cx="57" cy="59" r="7" fill="#073957"/>
+      <circle cx="59" cy="56" r="2.5" fill="#fff"/>
+      <path d="M11 74c13 8 25 8 37 0" fill="none" stroke="#103f59" stroke-width="7" stroke-linecap="round"/>
+      <path d="M85 32 111 5l13 32M85 108l26 27 13-32" fill="${tail}" stroke="#103f59" stroke-width="6" stroke-linejoin="round"/>
+    </svg>`;
+  }
+
+  function ensureStarterFish(){
+    const palettes = [
+      ["#38c9e8","#ff7d9b","#fff1a0","#1599c0"],
+      ["#ffd25f","#47d4aa","#ffffff","#f29b38"],
+      ["#ff8bac","#65dff1","#fff0a5","#db5275"],
+      ["#64ddb0","#ffcd57","#ffffff","#279d76"],
+      ["#8ec6ff","#ff7896","#ffe66d","#596ad7"]
+    ];
+    const positions = [.12,.30,.49,.68,.84];
+    const heights = [.20,.56,.35,.68,.45];
+    palettes.forEach((p,index) => {
+      const id = `starter-fish-${index+1}`;
+      if(fishes.has(id)) return;
+      const svg = starterFishSvg(...p);
+      const record = {
+        id,
+        name:`海のともだち ${index+1}`,
+        blob:new Blob([svg],{type:"image/svg+xml"}),
+        width:240,
+        height:140,
+        baseFacing:-1,
+        sizeScale:.62 + index*.035,
+        createdAt:0,
+        builtIn:true
+      };
+      const fish = createFishElement(record);
+      fish.x = innerWidth*positions[index];
+      fish.baseY = innerHeight*heights[index];
+      fish.direction = index%2===0 ? 1 : -1;
+      fish.speed = 22 + index*3;
+      fish.waveAmp = 10 + index*2;
+    });
+  }
+
+  function showEventBanner(title,message,kind="warning",duration=5200){
+    clearTimeout(eventBannerTimer);
+    eventTitle.textContent = title;
+    eventMessage.textContent = message;
+    eventBanner.className = `event-banner ${kind} show`;
+    eventBannerTimer = setTimeout(() => {
+      eventBanner.classList.remove("show");
+    },duration);
+  }
+
+  function updateRecordBoard(){
+    savedCountEl.textContent = String(savedCount);
+    lostCountEl.textContent = String(lostCount);
+  }
+
+  function markSaved(message,showBanner=true){
+    savedCount++;
+    localStorage.setItem("ocean-saved-count",String(savedCount));
+    updateRecordBoard();
+    if(showBanner) showEventBanner("魚を守れました",message,"success",4300);
+  }
+
+  function markLost(message,showBanner=true){
+    lostCount++;
+    localStorage.setItem("ocean-lost-count",String(lostCount));
+    updateRecordBoard();
+    if(showBanner) showEventBanner("海から魚がいなくなりました",message,"loss",6500);
+  }
+
+  function scheduleNextEvent(first=false){
+    const minDelay = Math.max(10,eventInterval*.85);
+    const maxDelay = Math.max(minDelay+1,eventInterval*1.15);
+    const firstMax = Math.max(11,Math.min(20,maxDelay));
+    const delay = first ? rand(10,firstMax) : rand(minDelay,maxDelay);
+    nextEventAt = performance.now() + delay*1000;
+  }
+
+  function scheduleNextStorm(first=false){
+    const base = Math.max(70,eventInterval*3.4);
+    const min = first ? Math.max(45,eventInterval*1.45) : base*.82;
+    const max = first ? Math.max(75,eventInterval*2.15) : base*1.34;
+    nextStormAt = performance.now() + rand(min,max)*1000;
+  }
+
+  function detachFishFromEvent(){
+    fishes.forEach(fish => {
+      if(fish.eventState?.type==="hook"){
+        fish.el.classList.remove("event-hooked");
+        fish.eventState = null;
+      }
+    });
+  }
+
+  function destroyActiveEvent(schedule=true){
+    if(!activeEvent) return;
+    if(activeEvent.type==="storm"){
+      activeEvent.items?.forEach(item => item.el?.remove());
+      activeEvent.overlay?.remove();
+      document.body.classList.remove("storm-active");
+    }else if(activeEvent.el?.isConnected){
+      activeEvent.el.remove();
+    }
+    detachFishFromEvent();
+    activeEvent = null;
+    if(schedule) scheduleNextEvent(false);
+  }
+
+  function removeEventElement(){
+    destroyActiveEvent(true);
+  }
+
+  async function removeFishFromOcean(fish,reason,showBanner=true){
+    if(!fish || !fishes.has(fish.record.id)) return;
+    if(selectedId===fish.record.id) selectFish(null);
+    fish.el.remove();
+    fishes.delete(fish.record.id);
+    await safeDeleteRecord(fish);
+    updateCount();
+    markLost(reason,showBanner);
+  }
+
+  function nearestAvailableFish(x,y,maxDistance=110){
+    let best = null;
+    let bestD = maxDistance;
+    fishes.forEach(fish => {
+      if(fish.eventState) return;
+      const fy = fish.currentY ?? fish.baseY;
+      const d = Math.hypot(fish.x-x,fy-y);
+      if(d<bestD){ best=fish; bestD=d; }
+    });
+    return best;
+  }
+
+  function fishingHookSvg(){
+    return `<svg viewBox="0 0 80 110" aria-hidden="true">
+      <path d="M39 2v57c0 24 30 29 34 4" fill="none" stroke="#dcebf0" stroke-width="6" stroke-linecap="round"/>
+      <path d="m72 63-12 10 16 2-4-12Z" fill="#dcebf0" stroke="#55727f" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M18 70c12-15 28-12 35 0-7 13-23 17-35 0Z" fill="#ffcf55" stroke="#72570e" stroke-width="4"/>
+      <circle cx="27" cy="67" r="3" fill="#553d00"/>
+    </svg>`;
+  }
+
+  function startFishingEvent(){
+    const el = document.createElement("div");
+    el.className = "fishing-event";
+    el.tabIndex = 0;
+    el.setAttribute("role","button");
+    el.setAttribute("aria-label","釣り糸を引き上げて魚を守る");
+    el.innerHTML = `<div class="fishing-line"></div><div class="fishing-hook">${fishingHookSvg()}</div>`;
+    const x = rand(innerWidth*.13,innerWidth*.87);
+    el.style.left = `${x}px`;
+    eventLayer.appendChild(el);
+    activeEvent = {
+      type:"hook",el,x,y:-80,targetY:rand(innerHeight*.28,innerHeight*.68),
+      phase:"down",phaseStart:performance.now(),caughtFish:null,rescued:false
+    };
+    const rescue = (ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      if(!activeEvent || activeEvent.el!==el) return;
+      activeEvent.rescued=true;
+      activeEvent.phase="up";
+      activeEvent.phaseStart=performance.now();
+      el.classList.add("rescuing");
+      if(activeEvent.caughtFish){
+        const fish=activeEvent.caughtFish;
+        fish.eventState=null;
+        fish.el.classList.remove("event-hooked");
+        fish.baseY=clamp(activeEvent.y+60,innerHeight*.08,innerHeight*.75);
+        fish.direction=Math.random()>.5?1:-1;
+        activeEvent.caughtFish=null;
+        markSaved("釣られそうだった魚を、海へ逃がすことができました。必要以上に魚をとらないことも海を守る行動です。");
+      }else{
+        markSaved("釣り糸を魚がかかる前に引き上げました。海に残った糸も、生きものに絡まる危険があります。");
+      }
+    };
+    el.addEventListener("click",rescue);
+    el.addEventListener("keydown",ev => { if(ev.key==="Enter"||ev.key===" ") rescue(ev); });
+    showEventBanner("釣り糸が降りてきました","糸をクリックすると、魚が釣られる前に引き上げられます。","warning",7000);
+  }
+
+  function bagSvg(){
+    return `<svg viewBox="0 0 120 120" aria-hidden="true">
+      <path d="M35 20c1 17 8 24 25 24s24-7 25-24" fill="none" stroke="#eaf7ff" stroke-width="8" stroke-linecap="round" opacity=".82"/>
+      <path d="M25 38c7-8 18-11 35-11s28 3 35 11l10 61c-15 12-74 12-90 0l10-61Z" fill="rgba(221,244,255,.56)" stroke="#d7f2ff" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M29 55c19 8 42 4 64-5M24 78c23 6 49 4 76-4" fill="none" stroke="#fff" stroke-width="3" opacity=".55"/>
+    </svg>`;
+  }
+
+  function bottleSvg(){
+    return `<svg viewBox="0 0 150 90" aria-hidden="true">
+      <g transform="rotate(-8 75 45)">
+        <path d="M25 31h17l9-10h58l9 10h13v29h-13l-9 10H51l-9-10H25V31Z" fill="rgba(150,225,240,.63)" stroke="#d8f7ff" stroke-width="5"/>
+        <path d="M118 34h24v23h-24" fill="#68c8da" stroke="#d8f7ff" stroke-width="5"/>
+        <path d="M55 29v34M102 29v34" stroke="#fff" stroke-width="3" opacity=".55"/>
+        <path d="M61 45h34" stroke="#1f91b0" stroke-width="7" opacity=".65"/>
+      </g>
+    </svg>`;
+  }
+
+  function canSvg(){
+    return `<svg viewBox="0 0 100 110" aria-hidden="true">
+      <g transform="rotate(12 50 55)">
+        <ellipse cx="50" cy="19" rx="27" ry="11" fill="#e5eef1" stroke="#6e8793" stroke-width="5"/>
+        <path d="M23 19v70c2 15 52 15 54 0V19" fill="#ef6f72" stroke="#6e8793" stroke-width="5"/>
+        <ellipse cx="50" cy="89" rx="27" ry="11" fill="#c7d6dc" stroke="#6e8793" stroke-width="5"/>
+        <path d="M31 46h38M31 61h38" stroke="#ffe8a3" stroke-width="7" opacity=".9"/>
+        <path d="M44 15h17" stroke="#607986" stroke-width="4" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function cupSvg(){
+    return `<svg viewBox="0 0 110 125" aria-hidden="true">
+      <g transform="rotate(-9 55 62)">
+        <path d="M27 30h59L76 108H38L27 30Z" fill="#f5f1df" stroke="#8aa0aa" stroke-width="5"/>
+        <path d="M22 28h69" stroke="#ffffff" stroke-width="10" stroke-linecap="round"/>
+        <path d="M62 27 85 2" stroke="#ff6f8d" stroke-width="7" stroke-linecap="round"/>
+        <path d="M40 58h32" stroke="#42bad5" stroke-width="11" opacity=".8"/>
+      </g>
+    </svg>`;
+  }
+
+  function wrapperSvg(){
+    return `<svg viewBox="0 0 150 90" aria-hidden="true">
+      <g transform="rotate(7 75 45)">
+        <path d="m12 24 18 8 13-13h66l12 13 18-8-7 22 7 21-19-6-11 12H43L31 61l-19 6 8-21-8-22Z" fill="#ffc84c" stroke="#80631b" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M48 34h55M46 49h59" stroke="#ff748f" stroke-width="8" stroke-linecap="round"/>
+        <path d="M58 64h35" stroke="#fff3bf" stroke-width="6" stroke-linecap="round"/>
+      </g>
+    </svg>`;
+  }
+
+  function netSvg(){
+    return `<svg viewBox="0 0 150 130" aria-hidden="true">
+      <path d="M20 17c36 3 78 1 111 16l-12 75c-38 8-73 6-103-9L20 17Z" fill="rgba(193,222,217,.20)" stroke="#b8d6ce" stroke-width="6" stroke-linejoin="round"/>
+      <g stroke="#b8d6ce" stroke-width="3" opacity=".9">
+        <path d="m23 33 94 72M18 54l91 63M17 76l70 48M42 20l-25 79M67 21l-24 91M94 25l-20 96M119 31l-14 82"/>
+      </g>
+      <circle cx="23" cy="20" r="7" fill="#ffb64d"/><circle cx="132" cy="34" r="7" fill="#ffb64d"/>
+    </svg>`;
+  }
+
+  function foamSvg(){
+    return `<svg viewBox="0 0 150 100" aria-hidden="true">
+      <g transform="rotate(-6 75 50)">
+        <path d="M18 27c27-12 87-12 114 0l-10 55c-27 10-67 10-94 0L18 27Z" fill="#f7f7ef" stroke="#aebbc0" stroke-width="6"/>
+        <path d="M28 42c27-9 67-9 94 0M42 37l-8 44M108 37l8 44" fill="none" stroke="#d5dddf" stroke-width="5"/>
+      </g>
+    </svg>`;
+  }
+
+  function ringsSvg(){
+    return `<svg viewBox="0 0 150 100" aria-hidden="true">
+      <g fill="none" stroke="#dceef0" stroke-width="9" opacity=".88">
+        <ellipse cx="36" cy="33" rx="23" ry="18"/><ellipse cx="76" cy="31" rx="23" ry="18"/><ellipse cx="116" cy="34" rx="23" ry="18"/>
+        <ellipse cx="42" cy="69" rx="23" ry="18"/><ellipse cx="82" cy="70" rx="23" ry="18"/><ellipse cx="122" cy="68" rx="23" ry="18"/>
+      </g>
+    </svg>`;
+  }
+
+  const TRASH_INFO = {
+    glass_bottle:{
+      label:"海に流れたビン",
+      image:".images/ビン.png",
+      width:82,height:122,radius:62,
+      collect:"ビンを回収しました。割れたガラスは、魚や海辺を歩く人を傷つけることがあります。",
+      contact:"魚が海に流れたビンの近くで傷つきました。",
+      loss:"魚が海に流れたビンで傷つき、いなくなりました。ビンは決められた場所へ捨てることが大切です。"
+    },
+    buoy:{
+      label:"海に流れたブイ",
+      image:".images/ブイ.png",
+      width:118,height:112,radius:76,
+      collect:"流されたブイを回収しました。漁具も、管理されずに海を漂うと生きものの危険になります。",
+      contact:"魚が流されたブイやひもに巻き込まれました。",
+      loss:"魚が流された漁具に巻き込まれ、いなくなりました。海で使う道具を回収することも大切です。"
+    },
+    plastic_bottle:{
+      label:"ペットボトル",
+      image:".images/ペットボトル.png",
+      width:126,height:86,radius:68,
+      collect:"ペットボトルを回収しました。街のごみも、雨や川を通って海へ流れ着くことがあります。",
+      contact:"魚がペットボトルの破片をえさと間違えました。",
+      loss:"魚がプラスチック片を飲み込み、いなくなりました。使った物を正しく捨てることが命を守ります。"
+    },
+    driftwood_large:{
+      label:"大きな流木",
+      image:".images/流木大.png",
+      width:182,height:108,radius:92,
+      collect:"大きな流木をよけました。流木は自然のものですが、嵐の後には船や海の生きものにぶつかることがあります。",
+      contact:"魚が強い流れに運ばれた大きな流木にぶつかりました。",
+      loss:"魚が大きな流木にぶつかり、いなくなりました。嵐の後の海では、さまざまな物が勢いよく流れます。"
+    },
+    driftwood_small:{
+      label:"小さな流木",
+      image:".images/流木小.png",
+      width:132,height:82,radius:70,
+      collect:"小さな流木をよけました。嵐の後は、自然の木や枝も一度に海へ運ばれます。",
+      contact:"魚が流れてきた木の枝にぶつかりました。",
+      loss:"魚が流木にぶつかり、いなくなりました。嵐の後には海の流れが大きく変わります。"
+    },
+    styrofoam:{
+      label:"発泡スチロール",
+      image:".images/発泡スチロール.png",
+      width:138,height:104,radius:76,
+      collect:"発泡スチロールを回収しました。細かく砕けても、プラスチックは海から簡単には消えません。",
+      contact:"魚が細かくなった発泡スチロールを飲み込みました。",
+      loss:"魚が細かなプラスチックを飲み込み、いなくなりました。海へ流れる前に回収することが大切です。"
+    },
+    rope:{
+      label:"海に流れた綱",
+      image:".images/綱.png",
+      width:158,height:126,radius:88,
+      collect:"綱を回収しました。海を漂うロープや漁具は、長い間、生きものの体に絡み続けます。",
+      contact:"魚の体に、海を漂う綱が絡まりました。",
+      loss:"魚が綱から抜けられず、いなくなりました。使い終わった漁具を海に残さないことが大切です。"
+    },
+    can:{
+      label:"空き缶",
+      image:".images/缶.png",
+      width:94,height:104,radius:62,
+      collect:"空き缶を回収しました。さびた缶や鋭いふちは、海の生きものを傷つけることがあります。",
+      contact:"魚が空き缶の鋭い部分で傷つきました。",
+      loss:"魚が空き缶で傷つき、いなくなりました。外で出たごみは持ち帰りましょう。"
+    },
+    shoe:{
+      label:"海に流れた靴",
+      image:".images/靴.png",
+      width:132,height:94,radius:72,
+      collect:"靴を回収しました。海には、暮らしの中で使われていたさまざまな物が流れ着きます。",
+      contact:"魚が流れてきた靴や、その部品をえさと間違えました。",
+      loss:"魚が海に流れた生活ごみの影響で、いなくなりました。街と海は川や雨でつながっています。"
+    }
+  };
+  const TRASH_TYPES = Object.keys(TRASH_INFO);
+
+  function randomTrashType(){
+    return TRASH_TYPES[Math.floor(Math.random()*TRASH_TYPES.length)];
+  }
+
+  function makeTrashItem(type,options={}){
+    const info=TRASH_INFO[type] || TRASH_INFO.plastic_bottle;
+    const el=document.createElement("div");
+    el.className=`event-object trash-object ${type}`;
+    el.tabIndex=0;
+    el.setAttribute("role","button");
+    el.setAttribute("aria-label",`${info.label}を回収する`);
+    el.style.width=`${info.width}px`;
+    el.style.height=`${info.height}px`;
+
+    const img=document.createElement("img");
+    img.src=info.image;
+    img.alt=info.label;
+    img.decoding="async";
+    img.draggable=false;
+    img.addEventListener("error",() => {
+      img.remove();
+      el.classList.add("image-missing");
+      el.textContent=`${info.label}\n画像を確認してください`;
+    },{once:true});
+    el.appendChild(img);
+    eventLayer.appendChild(el);
+    const fromLeft=options.fromLeft ?? (Math.random()>.5);
+    const speed=options.speed ?? rand(24,39);
+    const item={
+      type,info,el,
+      x:options.x ?? (fromLeft?-150:innerWidth+150),
+      y:options.y ?? rand(innerHeight*.17,innerHeight*.74),
+      vx:(fromLeft?1:-1)*speed,
+      vy:options.vy ?? 0,
+      phase:rand(0,Math.PI*2),
+      age:0,hit:false,collected:false,storm:!!options.storm
+    };
+    const collect=(ev) => {
+      ev.preventDefault(); ev.stopPropagation();
+      if(item.hit || item.collected) return;
+      if(item.storm){
+        if(!activeEvent || activeEvent.type!=="storm" || !activeEvent.items.includes(item)) return;
+        item.collected=true; item.hit=true;
+        activeEvent.collected++;
+        markSaved(info.collect,false);
+        updateStormStatus(activeEvent);
+        toast(`${info.label}を回収しました`);
+        el.classList.add("collecting");
+        setTimeout(() => removeStormItem(activeEvent,item),560);
+      }else{
+        if(!activeEvent || activeEvent.el!==el) return;
+        item.collected=true; item.hit=true;
+        el.classList.add("collecting");
+        markSaved(info.collect);
+        setTimeout(removeEventElement,560);
+      }
+    };
+    el.addEventListener("click",collect);
+    el.addEventListener("keydown",ev => { if(ev.key==="Enter"||ev.key===" ") collect(ev); });
+    return item;
+  }
+
+  function startTrashEvent(){
+    const type=randomTrashType();
+    const item=makeTrashItem(type);
+    activeEvent={type:"trash",trashType:type,info:item.info,el:item.el,item};
+    showEventBanner(`${item.info.label}が流れてきました`,`ごみをクリックして、魚に近づく前に回収してください。`,"warning",7000);
+  }
+
+  function stormOverlayHtml(){
+    return `<div class="storm-dark"></div><div class="storm-surface"></div><div class="storm-current"></div><div class="storm-flash"></div><div class="storm-status">嵐で流れたごみ　回収 <b>0</b> / <span>0</span></div>`;
+  }
+
+  function updateStormStatus(storm){
+    const status=storm.overlay?.querySelector(".storm-status");
+    if(!status) return;
+    status.innerHTML=`嵐で流れたごみ　回収 <b>${storm.collected}</b> / <span>${storm.targetCount}</span>`;
+  }
+
+  function startStormEvent(){
+    if(activeEvent || !eventsEnabled || fishes.size===0) return;
+    const overlay=document.createElement("div");
+    overlay.className="storm-overlay";
+    overlay.innerHTML=stormOverlayHtml();
+    eventLayer.appendChild(overlay);
+    document.body.classList.add("storm-active");
+    const targetCount=Math.floor(rand(14,21));
+    activeEvent={
+      type:"storm",overlay,items:[],targetCount,spawned:0,collected:0,
+      casualties:0,maxCasualties:2,age:0,nextSpawn:.4,duration:21,
+      windDirection:Math.random()>.5?1:-1,ending:false
+    };
+    updateStormStatus(activeEvent);
+    showEventBanner("嵐が来ました","強い雨や風のあとには、街や川のごみが一度に海へ流れ込むことがあります。流れてくるごみをクリックして回収してください。","loss",8200);
+  }
+
+  function spawnStormTrash(storm){
+    const type=randomTrashType();
+    const fromLeft=storm.windDirection>0;
+    const item=makeTrashItem(type,{
+      storm:true,fromLeft,
+      speed:rand(55,105),
+      y:rand(innerHeight*.10,innerHeight*.78),
+      vy:rand(-6,14)
+    });
+    item.scale=rand(.72,1.22);
+    item.el.style.opacity=String(rand(.72,1));
+    storm.items.push(item);
+    storm.spawned++;
+    updateStormStatus(storm);
+  }
+
+  function removeStormItem(storm,item){
+    if(!storm || storm.type!=="storm") return;
+    item.el?.remove();
+    const index=storm.items.indexOf(item);
+    if(index>=0) storm.items.splice(index,1);
+  }
+
+  function finishStormEvent(){
+    if(!activeEvent || activeEvent.type!=="storm") return;
+    const storm=activeEvent;
+    storm.ending=true;
+    storm.overlay.classList.add("leaving");
+    const message=storm.casualties>0
+      ? `${storm.collected}個のごみを回収しました。しかし、嵐で流れ込んだごみにより${storm.casualties}匹の魚がいなくなりました。海のごみは、海岸だけでなく街や川からもやってきます。`
+      : `${storm.collected}個のごみを回収し、魚を守ることができました。嵐の前に街のごみを片づけておくことも、海を守る行動です。`;
+    showEventBanner("嵐が去りました",message,storm.casualties>0?"loss":"success",7600);
+    setTimeout(() => {
+      if(activeEvent!==storm) return;
+      storm.items.forEach(item => item.el?.remove());
+      storm.overlay?.remove();
+      document.body.classList.remove("storm-active");
+      activeEvent=null;
+      scheduleNextEvent(false);
+      scheduleNextStorm(false);
+    },1450);
+  }
+
+  function startRandomEvent(forceType=null){
+    if(activeEvent || !eventsEnabled || fishes.size===0) return;
+    const type=forceType || (Math.random()<.43 ? "hook" : "trash");
+    if(type==="hook") startFishingEvent();
+    else if(type==="storm") startStormEvent();
+    else startTrashEvent();
+  }
+
+  function damageFishWithTrash(fish,item,now,storm=null){
+    item.hit=true;
+    item.el.style.opacity="0";
+    fish.eventState={type:"sick",start:now};
+    fish.el.classList.add("event-sick");
+    if(storm) storm.casualties++;
+    showEventBanner(item.info.contact,"海の生きものは、流れてきたごみをえさと間違えたり、体に絡ませたりします。","loss",4300);
+    setTimeout(() => {
+      if(!fishes.has(fish.record.id)) return;
+      fish.el.classList.add("event-leaving");
+      setTimeout(() => removeFishFromOcean(fish,item.info.loss,!storm),2200);
+    },2200);
+  }
+
+  function updateTrashItem(item,dt,now,storm=null){
+    item.age += dt;
+    item.x += item.vx*dt;
+    item.y += item.vy*dt;
+    const bob=Math.sin(item.age*(storm?2.1:1.35)+item.phase)*(storm?25:18);
+    const rot=Math.sin(item.age*(storm?1.7:.8)+item.phase)*(storm?24:13);
+    const scale=item.scale || 1;
+    item.el.style.transform=`translate3d(${item.x}px,${item.y+bob}px,0) rotate(${rot}deg) scale(${scale})`;
+    if(!item.hit){
+      const canHarm=!storm || storm.casualties<storm.maxCasualties;
+      const fish=canHarm ? nearestAvailableFish(
+        item.x+item.info.width*.5,
+        item.y+bob+item.info.height*.5,
+        item.info.radius
+      ) : null;
+      if(fish){
+        damageFishWithTrash(fish,item,now,storm);
+        if(storm) setTimeout(() => removeStormItem(storm,item),420);
+        return "hit";
+      }
+    }
+    const outside=item.x < -210 || item.x > innerWidth+210 || item.y>innerHeight+130 || item.y<-150;
+    if(outside || item.age>(storm?17:24)) return "remove";
+    return "keep";
+  }
+
+  function updateActiveEvent(dt,now){
+    if(!activeEvent) return;
+    const ev=activeEvent;
+    if(ev.type==="hook"){
+      const elapsed=(now-ev.phaseStart)/1000;
+      if(ev.phase==="down"){
+        ev.y = -80 + (ev.targetY+80)*Math.min(1,elapsed/4.2);
+        if(elapsed>=4.2){ ev.phase="wait"; ev.phaseStart=now; }
+      }else if(ev.phase==="wait"){
+        ev.y = ev.targetY + Math.sin(now/430)*5;
+        if(!ev.caughtFish){
+          const fish=nearestAvailableFish(ev.x,ev.y+57,84);
+          if(fish){
+            ev.caughtFish=fish;
+            fish.eventState={type:"hook",event:ev};
+            fish.el.classList.add("event-hooked");
+            showEventBanner("魚が釣り針にかかりました","釣り糸をクリックすると、まだ魚を海へ逃がせます。","loss",5000);
+            ev.phase="hold"; ev.phaseStart=now;
+          }
+        }
+        if(elapsed>9){ ev.phase="up"; ev.phaseStart=now; }
+      }else if(ev.phase==="hold"){
+        ev.y = ev.targetY + Math.sin(now/270)*4;
+        if(elapsed>3.2){ ev.phase="up"; ev.phaseStart=now; }
+      }else if(ev.phase==="up"){
+        const start=ev.targetY;
+        ev.y = start + (-130-start)*Math.min(1,elapsed/3.2);
+        if(elapsed>=3.2){
+          if(ev.caughtFish && !ev.rescued){
+            const caught=ev.caughtFish;
+            ev.caughtFish=null;
+            removeFishFromOcean(caught,"魚が釣り上げられました。海の命は無限ではありません。とる量や方法を考えることが大切です。");
+          }
+          removeEventElement();
+          return;
+        }
+      }
+      ev.el.style.setProperty("--line-height",`${Math.max(0,ev.y)}px`);
+      if(ev.caughtFish){
+        const fish=ev.caughtFish;
+        fish.x=ev.x;
+        fish.currentY=ev.y+55;
+        const renderedWidth=fish.width*globalSize;
+        fish.el.style.transform=`translate3d(${ev.x-renderedWidth*.5}px,${ev.y+55}px,0) rotate(${Math.sin(now/110)*8}deg)`;
+        fish.turn.style.transform=`scaleX(${fish.record.baseFacing||1})`;
+      }
+    }else if(ev.type==="trash"){
+      const result=updateTrashItem(ev.item,dt,now,null);
+      if(result==="hit"){
+        setTimeout(removeEventElement,450);
+      }else if(result==="remove"){
+        removeEventElement();
+      }
+    }else if(ev.type==="storm"){
+      ev.age += dt;
+      if(ev.spawned<ev.targetCount && ev.age>=ev.nextSpawn){
+        const burst=Math.random()<.28 ? 2 : 1;
+        for(let i=0;i<burst && ev.spawned<ev.targetCount;i++) spawnStormTrash(ev);
+        ev.nextSpawn=ev.age+rand(.38,.92);
+      }
+      [...ev.items].forEach(item => {
+        const result=updateTrashItem(item,dt,now,ev);
+        if(result==="remove") removeStormItem(ev,item);
+      });
+      if(!ev.ending && (ev.age>ev.duration || (ev.spawned>=ev.targetCount && ev.items.length===0 && ev.age>10))){
+        finishStormEvent();
+      }
+    }
+  }
+
+  function animate(now){
+    const dt = Math.min(.05,(now-lastTime)/1000);
+    lastTime = now;
+
+    if(!paused){
+      const vw = innerWidth;
+      const vh = innerHeight;
+      const t = now/1000;
+      const storming = activeEvent?.type==="storm";
+
+      fishes.forEach(fish => {
+        const renderedWidth = fish.width*globalSize;
+        const margin = renderedWidth*.54;
+
+        if(fish.eventState?.type==="hook") return;
+        if(fish.eventState?.type==="sick"){
+          fish.x += fish.direction*fish.speed*globalSpeed*dt*.18;
+          fish.baseY += Math.sin(t*4+fish.phase)*dt*6;
+        }else{
+          const currentBoost = storming ? 1.34 : 1;
+          fish.x += fish.direction*fish.speed*globalSpeed*dt*currentBoost;
+        }
+        if(fish.direction>0 && fish.x>vw+margin){
+          fish.direction=-1;
+          fish.x=vw+margin;
+          fish.baseY=clamp(fish.baseY+rand(-vh*.16,vh*.16),vh*.08,vh*.78);
+        }else if(fish.direction<0 && fish.x<-margin){
+          fish.direction=1;
+          fish.x=-margin;
+          fish.baseY=clamp(fish.baseY+rand(-vh*.16,vh*.16),vh*.08,vh*.78);
         }
 
-        // ==========================================
-        // タイマー管理
-        // ==========================================
-        function updateLifeUI() {
-            DOM.lifeNum.innerText = totalLife;
-            const pct = Math.max(0, (totalLife / INITIAL_LIFE) * 100);
-            DOM.lifeBar.style.width = `${pct}%`;
-            if (pct < 20) DOM.lifeBar.classList.add('danger');
-            else DOM.lifeBar.classList.remove('danger');
-        }
+        const stormSway = storming ? Math.sin(t*3.2+fish.phase)*16 : 0;
+        const y = fish.baseY + Math.sin(t*fish.waveFreq+fish.phase)*fish.waveAmp + stormSway;
+        fish.currentY = y;
+        const angle = Math.sin(t*fish.waveFreq+fish.anglePhase)*(storming?7.5:3.2);
+        const facing = fish.direction*(fish.record.baseFacing || 1);
+        const breathing = 1 + Math.sin(t*1.7+fish.phase)*.007;
 
-        function startTimer() {
-            if (timerInterval) clearInterval(timerInterval);
-            isPlaying = true;
-            timeInCurrentStage = 0;
-            timerInterval = setInterval(() => {
-                totalLife--;
-                timeInCurrentStage++;
-                updateLifeUI();
-                
-                if (totalLife <= 0) {
-                    totalLife = 0;
-                    updateLifeUI();
-                    gameOver();
-                }
-            }, 1000);
-        }
+        fish.el.style.transform =
+          `translate3d(${fish.x-renderedWidth*.5}px,${y}px,0) scale(${breathing})`;
+        fish.turn.style.transform =
+          `scaleX(${facing}) rotate(${angle*fish.direction}deg)`;
+      });
+      updateActiveEvent(dt,now);
+      if(eventsEnabled && !activeEvent){
+        if(now>=nextStormAt) startStormEvent();
+        else if(now>=nextEventAt) startRandomEvent();
+      }
+    }
 
-        function stopTimer() {
-            isPlaying = false;
-            if (timerInterval) clearInterval(timerInterval);
-        }
+    rafId = requestAnimationFrame(animate);
+  }
 
-        function gameOver() {
-            stopTimer();
-            document.getElementById('go-stage').innerText = currentStage;
-            DOM.gameOverScreen.classList.remove('hidden');
-        }
+  function togglePause(){
+    paused=!paused;
+    document.body.classList.toggle("paused",paused);
+    const pauseButton = $("#pauseBtn");
+    const pauseLabel = $("#pauseLabel");
+    pauseButton.title = paused ? "もう一度うごかす" : "動きをとめる";
+    pauseButton.setAttribute("aria-label", pauseButton.title);
+    if(pauseLabel) pauseLabel.textContent = paused ? "うごかす" : "とめる";
+    toast(paused ? "おさかなの動きをとめました" : "おさかなが泳ぎはじめました");
+  }
 
-        // ==========================================
-        // パズルロジック
-        // ==========================================
-        function initStage() {
-            DOM.stageNum.innerText = currentStage;
-            const data = shellData[currentStage - 1];
-            
-            getImageUrl(data.no, data.kasenName, (url) => {
-                currentImageUrl = url;
-                createBoard();
-                startTimer();
-            });
-        }
+  async function toggleFullscreen(){
+    try{
+      if(!document.fullscreenElement){
+        await document.documentElement.requestFullscreen();
+      }else{
+        await document.exitFullscreen();
+      }
+    }catch(err){
+      toast("このブラウザでは全画面表示を開始できません");
+    }
+  }
 
-        function createBoard() {
-            DOM.board.innerHTML = '';
-            // 8番目(右下)がnull
-            board = [0, 1, 2, 3, 4, 5, 6, 7, null]; 
-            missingPieceElement = null;
-            
-            // ピースの生成 (0〜8)
-            for (let i = 0; i < 9; i++) {
-                if (i === EMPTY_INDEX) {
-                    // 完成時にはめる用のピースを作っておく（非表示）
-                    const p = document.createElement('div');
-                    p.className = 'piece';
-                    p.style.backgroundImage = `url(${currentImageUrl})`;
-                    const origX = (i % 3) * 100;
-                    const origY = Math.floor(i / 3) * 100;
-                    p.style.backgroundPosition = `-${origX}px -${origY}px`;
-                    p.style.display = 'none';
-                    p.style.zIndex = '10';
-                    DOM.board.appendChild(p);
-                    missingPieceElement = p;
-                    continue;
-                }
+  function toggleSettings(force){
+    settingsPanel.classList.toggle("open",force ?? !settingsPanel.classList.contains("open"));
+  }
 
-                const piece = document.createElement('div');
-                piece.className = 'piece';
-                piece.dataset.id = i;
-                piece.style.backgroundImage = `url(${currentImageUrl})`;
-                
-                const origX = (i % 3) * 100;
-                const origY = Math.floor(i / 3) * 100;
-                piece.style.backgroundPosition = `-${origX}px -${origY}px`;
-                
-                // クリックイベント
-                piece.addEventListener('click', () => handlePieceClick(i));
-                
-                DOM.board.appendChild(piece);
-            }
+  function toggleControls(force){
+    const hidden = force ?? !document.body.classList.contains("controls-hidden");
+    document.body.classList.toggle("controls-hidden",hidden);
+    if(hidden){
+      toggleSettings(false);
+      selectFish(null);
+    }
+  }
 
-            // シャッフル
-            shuffleBoard();
-            renderBoard();
-        }
+  function bindUI(){
+    fileInput.addEventListener("change",() => addFiles(fileInput.files));
+    $("#pauseBtn").addEventListener("click",togglePause);
+    $("#fullscreenBtn").addEventListener("click",toggleFullscreen);
+    $("#settingsBtn").addEventListener("click",() => toggleSettings());
+    $("#hideControlsBtn").addEventListener("click",() => toggleControls(true));
+    $("#showControls").addEventListener("click",() => toggleControls(false));
+    $("#clearBtn").addEventListener("click",clearAllFish);
+    const eventToggle = $("#eventToggle");
+    const eventRange = $("#eventRange");
+    const eventOut = $("#eventOut");
+    eventToggle.checked = eventsEnabled;
+    eventRange.value = String(eventInterval);
+    eventOut.textContent = `${eventInterval}秒`;
+    eventToggle.addEventListener("change",() => {
+      eventsEnabled = eventToggle.checked;
+      localStorage.setItem("ocean-events-enabled",String(eventsEnabled));
+      if(!eventsEnabled){
+        destroyActiveEvent(false);
+        showEventBanner("海の出来事をお休みします","設定から、いつでももう一度始められます。","success",3000);
+      }else{
+        scheduleNextEvent(true);
+        scheduleNextStorm(true);
+        showEventBanner("海の出来事を始めます","海洋ごみや釣り糸、嵐から魚を守ってください。","success",3800);
+      }
+    });
+    eventRange.addEventListener("input",() => {
+      eventInterval=Number(eventRange.value);
+      eventOut.textContent=`${eventInterval}秒`;
+    });
+    eventRange.addEventListener("change",() => {
+      localStorage.setItem("ocean-event-interval",String(eventInterval));
+      scheduleNextEvent(false);
+    });
+    $("#eventNowBtn").addEventListener("click",() => {
+      if(!eventsEnabled){ toast("海の出来事をオンにしてください"); return; }
+      if(activeEvent){ toast("いま起きている出来事が終わるまで待ってください"); return; }
+      startRandomEvent();
+      toggleSettings(false);
+    });
+    $("#stormNowBtn").addEventListener("click",() => {
+      if(!eventsEnabled){ toast("海の出来事をオンにしてください"); return; }
+      if(activeEvent){ toast("いま起きている出来事が終わるまで待ってください"); return; }
+      startStormEvent();
+      toggleSettings(false);
+    });
 
-        function shuffleBoard() {
-            let emptyPos = EMPTY_INDEX;
-            // 150回ランダムに移動してシャッフル
-            let prevEmpty = -1;
-            for (let i = 0; i < 150; i++) {
-                const moves = getValidMoves(emptyPos);
-                // 直前に戻る動きを避ける（可能な場合）
-                const validMoves = moves.filter(m => m !== prevEmpty);
-                const nextPos = validMoves.length > 0 ? validMoves[Math.floor(Math.random() * validMoves.length)] : moves[0];
-                
-                // swap
-                const pieceId = board[nextPos];
-                board[emptyPos] = pieceId;
-                board[nextPos] = null;
-                
-                prevEmpty = emptyPos;
-                emptyPos = nextPos;
-            }
-        }
+    $("#smallerBtn").addEventListener("click",() => resizeSelected(.84));
+    $("#largerBtn").addEventListener("click",() => resizeSelected(1.19));
+    $("#flipBtn").addEventListener("click",flipSelected);
+    $("#cloneBtn").addEventListener("click",cloneSelected);
+    $("#deleteBtn").addEventListener("click",removeSelected);
 
-        function getValidMoves(idx) {
-            const moves = [];
-            const x = idx % 3;
-            const y = Math.floor(idx / 3);
-            if (x > 0) moves.push(idx - 1); // 左
-            if (x < 2) moves.push(idx + 1); // 右
-            if (y > 0) moves.push(idx - 3); // 上
-            if (y < 2) moves.push(idx + 3); // 下
-            return moves;
-        }
+    ocean.addEventListener("click",() => selectFish(null));
 
-        function renderBoard() {
-            for (let i = 0; i < 9; i++) {
-                const pieceId = board[i];
-                if (pieceId !== null) {
-                    // IDからDOM要素を探す
-                    const el = DOM.board.querySelector(`.piece[data-id='${pieceId}']`);
-                    const x = (i % 3) * 100;
-                    const y = Math.floor(i / 3) * 100;
-                    el.style.transform = `translate(${x}px, ${y}px)`;
-                }
-            }
-        }
+    const speedRange = $("#speedRange");
+    const sizeRange = $("#sizeRange");
+    const bubbleRange = $("#bubbleRange");
+    speedRange.value=String(globalSpeed);
+    sizeRange.value=String(globalSize);
+    bubbleRange.value=String(bubbleCount);
+    $("#speedOut").textContent=`${globalSpeed.toFixed(2)}×`;
+    $("#sizeOut").textContent=`${globalSize.toFixed(2)}×`;
+    $("#bubbleOut").textContent=String(bubbleCount);
 
-        function handlePieceClick(pieceId) {
-            if (!isPlaying) return;
-            
-            const currentIdx = board.indexOf(pieceId);
-            const emptyIdx = board.indexOf(null);
-            
-            const validMoves = getValidMoves(emptyIdx);
-            if (validMoves.includes(currentIdx)) {
-                // 移動可能
-                board[emptyIdx] = pieceId;
-                board[currentIdx] = null;
-                renderBoard();
-                checkClear();
-            }
-        }
+    speedRange.addEventListener("input",() => {
+      globalSpeed=Number(speedRange.value);
+      $("#speedOut").textContent=`${globalSpeed.toFixed(2)}×`;
+      localStorage.setItem("ocean-speed",String(globalSpeed));
+    });
+    sizeRange.addEventListener("input",() => {
+      globalSize=Number(sizeRange.value);
+      $("#sizeOut").textContent=`${globalSize.toFixed(2)}×`;
+      localStorage.setItem("ocean-size",String(globalSize));
+      fishes.forEach(f => f.el.style.setProperty("--fish-width",`${f.width*globalSize}px`));
+    });
+    bubbleRange.addEventListener("input",() => {
+      bubbleCount=Number(bubbleRange.value);
+      $("#bubbleOut").textContent=String(bubbleCount);
+    });
+    bubbleRange.addEventListener("change",() => {
+      localStorage.setItem("ocean-bubbles",String(bubbleCount));
+      createBubbles();
+    });
 
-        // ==========================================
-        // クリア判定とエフェクト
-        // ==========================================
-        function checkClear() {
-            let isClear = true;
-            for (let i = 0; i < 9; i++) {
-                if (i === EMPTY_INDEX) {
-                    if (board[i] !== null) isClear = false;
-                } else {
-                    if (board[i] !== i) isClear = false;
-                }
-            }
+    document.addEventListener("keydown",(e) => {
+      if(e.target.matches("input")) return;
+      if(e.code==="Space"){ e.preventDefault(); togglePause(); }
+      else if(e.key.toLowerCase()==="f") toggleFullscreen();
+      else if(e.key.toLowerCase()==="u") fileInput.click();
+      else if(e.key.toLowerCase()==="h") toggleControls();
+      else if(e.key==="Escape") selectFish(null);
+      else if((e.key==="Delete"||e.key==="Backspace") && selectedId) removeSelected();
+    });
 
-            if (isClear) {
-                stopTimer();
-                
-                // 欠けていたピースをはめる
-                const x = (EMPTY_INDEX % 3) * 100;
-                const y = Math.floor(EMPTY_INDEX / 3) * 100;
-                missingPieceElement.style.transform = `translate(${x}px, ${y}px)`;
-                missingPieceElement.style.display = 'block';
-                
-                // すこし間を置いてエフェクト
-                setTimeout(() => {
-                    playClearEffect();
-                }, 200);
-            }
-        }
+    window.addEventListener("resize",() => {
+      createPlants();
+      fishes.forEach(f => {
+        f.baseY=clamp(f.baseY,innerHeight*.06,innerHeight*.78);
+      });
+    },{passive:true});
 
-        function playClearEffect() {
-            // スッキリするパーティクルエフェクト
-            const colors = ['#f44336', '#e91e63', '#9c27b0', '#673ab7', '#3f51b5', '#2196f3', '#03a9f4', '#00bcd4', '#009688', '#4caf50', '#8bc34a', '#cddc39', '#ffeb3b', '#ffc107', '#ff9800', '#ff5722'];
-            const rect = DOM.board.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
+    ["dragenter","dragover"].forEach(type => {
+      window.addEventListener(type,e => {
+        e.preventDefault();
+        if(type==="dragenter") dragCounter++;
+        dropOverlay.classList.add("show");
+      });
+    });
+    window.addEventListener("dragleave",e => {
+      e.preventDefault();
+      dragCounter=Math.max(0,dragCounter-1);
+      if(!dragCounter) dropOverlay.classList.remove("show");
+    });
+    window.addEventListener("drop",e => {
+      e.preventDefault();
+      dragCounter=0;
+      dropOverlay.classList.remove("show");
+      if(e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
+    });
+  }
 
-            for (let i = 0; i < 50; i++) {
-                const p = document.createElement('div');
-                p.className = 'particle';
-                document.body.appendChild(p);
-                
-                const size = Math.random() * 8 + 4;
-                p.style.width = size + 'px';
-                p.style.height = size + 'px';
-                p.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                p.style.left = centerX + 'px';
-                p.style.top = centerY + 'px';
+  async function init(){
+    bindUI();
+    createParticles();
+    createBubbles();
+    createPlants();
 
-                const angle = Math.random() * Math.PI * 2;
-                const distance = Math.random() * 150 + 50;
-                const tx = Math.cos(angle) * distance;
-                const ty = Math.sin(angle) * distance;
+    try{
+      db = await openDatabase();
+      const records = await dbGetAll();
+      records.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+      records.forEach(createFishElement);
+      ensureStarterFish();
+    }catch(err){
+      console.error(err);
+      toast("自動保存を利用できません。魚は画面を閉じるまで泳ぎます");
+      ensureStarterFish();
+    }
 
-                p.animate([
-                    { transform: 'translate(0,0) scale(1)', opacity: 1 },
-                    { transform: `translate(${tx}px, ${ty}px) scale(0)`, opacity: 0 }
-                ], {
-                    duration: Math.random() * 500 + 500,
-                    easing: 'cubic-bezier(0, .9, .57, 1)',
-                    fill: 'forwards'
-                });
+    updateRecordBoard();
+    scheduleNextEvent(true);
+    scheduleNextStorm(true);
+    updateCount();
+    lastTime=performance.now();
+    rafId=requestAnimationFrame(animate);
+  }
 
-                setTimeout(() => p.remove(), 1000);
-            }
-
-            // 結果画面へ
-            setTimeout(showResult, 1200);
-        }
-
-        // ==========================================
-        // リザルト画面
-        // ==========================================
-        function showResult() {
-            const data = shellData[currentStage - 1];
-            document.getElementById('result-img').style.backgroundImage = `url(${currentImageUrl})`;
-            document.getElementById('result-name').innerText = `${data.kasenName} (${data.name})`;
-            document.getElementById('result-poem').innerHTML = data.poem;
-            document.getElementById('result-source').innerText = data.source || '不明';
-            document.getElementById('result-author').innerText = data.author || '不明';
-            
-            document.getElementById('result-time').innerText = `Clear Time: ${timeInCurrentStage}秒`;
-            
-            const bonusMsg = document.getElementById('bonus-msg');
-            if (timeInCurrentStage <= 10) {
-                bonusMsg.innerText = 'FAST CLEAR BONUS! Life +5';
-                totalLife += 5;
-                updateLifeUI();
-            } else {
-                bonusMsg.innerText = '';
-            }
-
-            DOM.resultScreen.classList.remove('hidden');
-        }
-
-        DOM.btnNext.addEventListener('click', () => {
-            DOM.resultScreen.classList.add('hidden');
-            
-            // 5ステージに1回クイズ
-            if (currentStage % 5 === 0 && currentStage < MAX_STAGE) {
-                showQuiz();
-            } else {
-                nextStage();
-            }
-        });
-
-        function nextStage() {
-            if (currentStage >= MAX_STAGE) {
-                document.getElementById('final-score').innerText = totalLife;
-                DOM.allClearScreen.classList.remove('hidden');
-            } else {
-                currentStage++;
-                initStage();
-            }
-        }
-
-        // ==========================================
-        // クイズ機能
-        // ==========================================
-        function showQuiz() {
-            const optionsContainer = document.getElementById('quiz-options');
-            optionsContainer.innerHTML = '';
-            document.getElementById('quiz-result-msg').innerText = '';
-            DOM.btnQuizNext.classList.add('hidden');
-
-            // これまでクリアした貝の中からランダムに1つ正解を選ぶ
-            const pastData = shellData.slice(0, currentStage);
-            const correctData = pastData[Math.floor(Math.random() * pastData.length)];
-            
-            document.getElementById('quiz-question').innerText = `「${correctData.kasenName}」はどれ？`;
-
-            // 不正解の選択肢を作る（過去のデータから正解以外をランダムに抽出）
-            let others = pastData.filter(d => d.no !== correctData.no);
-            // シャッフル
-            others.sort(() => Math.random() - 0.5);
-            // 3つ抽出（足りなければそのまま）
-            let options = [correctData, ...others.slice(0, 3)];
-            options.sort(() => Math.random() - 0.5); // 選択肢をシャッフル
-
-            let isAnswered = false;
-
-            options.forEach(opt => {
-                const btn = document.createElement('div');
-                btn.className = 'quiz-option';
-                
-                // Canvasフォールバック付きで画像を取得しセット
-                getImageUrl(opt.no, opt.kasenName, (url) => {
-                    btn.style.backgroundImage = `url(${url})`;
-                });
-
-                btn.addEventListener('click', () => {
-                    if (isAnswered) return;
-                    isAnswered = true;
-                    
-                    if (opt.no === correctData.no) {
-                        btn.classList.add('correct');
-                        document.getElementById('quiz-result-msg').innerText = '正解！ Life +10';
-                        document.getElementById('quiz-result-msg').style.color = '#4caf50';
-                        totalLife += 10;
-                        updateLifeUI();
-                    } else {
-                        btn.classList.add('wrong');
-                        document.getElementById('quiz-result-msg').innerText = '残念...';
-                        document.getElementById('quiz-result-msg').style.color = '#f44336';
-                        // 正解の枠を光らせる
-                        const correctIndex = options.findIndex(o => o.no === correctData.no);
-                        optionsContainer.children[correctIndex].classList.add('correct');
-                    }
-                    
-                    DOM.btnQuizNext.classList.remove('hidden');
-                });
-
-                optionsContainer.appendChild(btn);
-            });
-
-            DOM.quizScreen.classList.remove('hidden');
-        }
-
-        DOM.btnQuizNext.addEventListener('click', () => {
-            DOM.quizScreen.classList.add('hidden');
-            nextStage();
-        });
-
-        // ==========================================
-        // イベントリスナー
-        // ==========================================
-        DOM.btnStart.addEventListener('click', () => {
-            DOM.startScreen.classList.add('hidden');
-            updateLifeUI();
-            initStage();
-        });
-
-    </script>
+  init();
+})();
+</script>
 </body>
 </html>
